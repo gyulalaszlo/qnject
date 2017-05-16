@@ -4,13 +4,14 @@ import time
 import subprocess
 import re
 from flask import Flask, request
+import tableau_file_converter as TableauFileConverter
 
 
 # CONFIG --------------------------
 
 injectorConfig = {
     # "injector-cmd": "Injector64.exe",
-    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe ",
+    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe",
     "dll": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\qnject.dll",
     "process-name": "tableau.exe",
 }
@@ -97,9 +98,9 @@ def get_config():
     return str(json.dumps({"baseUrl": qnjectConfig.baseUrl}))
 
 # GENERATING
-@app.route("/generator", methods=['GET'])
-def generator_help():
-    return 'Generator services root'
+# @app.route("/generator", methods=['GET'])
+# def generator_help():
+#     return json.dumps({"info": {"msg": "Generator services root: use '/generator/start?files=x.tds,x.tde' to start"}})
 
 
 # TRIGGERING --------------------------
@@ -134,27 +135,33 @@ def num(s, default=0):
         return default
 
 
-@app.route("/generator/start", methods=['GET'])
-def generator_set_start():
-    fnames = request.args.get('files', '').encode('ascii', 'ignore')
-    files = fnames.split(',')
-    result = []
-    for fn in files:
-        if fn.split('.').pop() not in valid_extensions.get('datasource'):
-            return json.dumps({"error": {"msg": "invalid datasource file type. Should be tds, tde or tdsx."}})
-        else:
-            result.append(fn)
-    return json.dumps({"files": result})
+# @app.route("/optimize", methods=['GET'])
+# def generator_set_start():
+#     tde_uri = request.args.get('tde_uri', '')
+#     tds_uri = request.args.get('tds_uri', '')
+
+
+#     twbxFromTdeAndTds
+#     # Call TWBX generator function
+#     # files = fnames.split(',')
+#     # result = []
+#     # for fn in files:
+#     #     if fn.split('.').pop() not in valid_extensions.get('datasource'):
+#     #         return json.dumps({"error": {"msg": "invalid datasource file type. Should be tds, tde or tdsx."}})
+#     #     else:
+#     #         result.append(fn)
+#     return json.dumps({"files": result})
 
 
 
 @app.route("/optimize")
 def trigger_optimize():
-    fn = request.args.get('file', '')
+    tde_uri = request.args.get('tde_uri', '').encode('ascii', 'ignore')
+    tds_uri = request.args.get('tds_uri', '').encode('ascii', 'ignore')
+    fn = TableauFileConverter.twbxFromTdeAndTds(tdeFile=tde_uri, tdsFile=tds_uri, baseTwb='emptywb.twb', tempDirName='twbxTemp')
+
+    # fn = request.args.get('file', '')
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
-
-
-
 
     if fn == "":
         return json.dumps({"error": {"msg": "a 'file' url parameter must be provided."}})
@@ -191,7 +198,11 @@ def trigger_optimize():
         return json.dumps(res), 200
 
 
+        # call
+        mydir = fn.split(os.path.sep)
+        twbxfn = mydir.pop()
 
+        TableauFileConverter.twbxToTdsx(mydir, twbxfn)
 
 
 
