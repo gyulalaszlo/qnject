@@ -77,7 +77,8 @@ def tdsxToTwbx(tdsxFileName,
 
     # Step x: Creat te twbx from twb + tde
     utils.createZip(twbxDir, twbxFileName)
-    return 0
+    
+    return os.path.join(twbxDir, twbxFileName)
 
 
 
