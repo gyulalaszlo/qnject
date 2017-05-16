@@ -282,7 +282,7 @@ def trigger_optimize():
                 tempDirName=tempDir)
     except Exception:
         logging.error("Error during TWBX creation: %s", traceback.format_exc())
-
+        return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
     # fn = request.args.get('file', '')
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
