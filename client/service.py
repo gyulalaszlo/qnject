@@ -10,8 +10,8 @@ from flask import Flask, request
 
 injectorConfig = {
     # "injector-cmd": "Injector64.exe",
-    "injector": "C:\\tmp\\_builds\\qnject64\\Injector64.exe",
-    "dll": "c:\\tmp\\_builds\\qnject64\\vaccine\\Release\\qnject.dll",
+    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe ",
+    "dll": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\qnject.dll",
     "process-name": "tableau.exe",
 }
 
@@ -23,7 +23,12 @@ tableauConfig = {
 # Pre-configure the qnject handler
 baseUrl = "http://localhost:8000/api"
 qnjectConfig = tde_optimize.Config(baseUrl=baseUrl)
+upload_temp_directory = 'uploads'
 
+valid_extensions = {
+    'datasource': ['tde', 'tds', 'tdsx'],
+    'workbook': ['twb', 'twbx']
+}
 
 # APP ---------------------------
 
@@ -91,6 +96,11 @@ def ping(): return "pong"
 def get_config():
     return str(json.dumps({"baseUrl": qnjectConfig.baseUrl}))
 
+# GENERATING
+@app.route("/generator", methods=['GET'])
+def generator_help():
+    return 'Generator services root'
+
 
 # TRIGGERING --------------------------
 
@@ -124,11 +134,24 @@ def num(s, default=0):
         return default
 
 
+@app.route("/generator/start", methods=['GET'])
+def generator_set_start():
+    fnames = request.args.get('files', '').encode('ascii', 'ignore')
+    files = fnames.split(',')
+    result = []
+    for fn in files:
+        if fn.split('.').pop() not in valid_extensions.get('datasource'):
+            return json.dumps({"error": {"msg": "invalid datasource file type. Should be tds, tde or tdsx."}})
+        else:
+            result.append(fn)
+    return json.dumps({"files": result})
+
+
+
 @app.route("/optimize")
 def trigger_optimize():
     fn = request.args.get('file', '')
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
-
 
 
 
