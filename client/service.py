@@ -5,9 +5,13 @@ import sys
 import traceback
 import subprocess
 import re
+import logging
 from flask import Flask, request
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
+
+
+
 
 # CONFIG --------------------------
 
@@ -68,13 +72,13 @@ def try_injection(cfg, pid, port=8000):
         else:
             cmd = getInjectorCmdForPid(cfg, pid)
 
-        print("--> Starting injection using {}".format(cmd))
+        logging.info("Starting injection using %s", cmd)
 
         # Run the injector
         result = subprocess.check_output(cmd, shell=True)
 
         if is_successful.search(result):
-            print("<-- Injection success into {}".format(pid))
+            logging.info("Injection successful into PID=%d", pid)
             return {"ok": {"msg": "Succesfully injected", "output": result}}
         else:
             return {"error": {"msg": "Failed injection", "output": result}}
@@ -89,7 +93,7 @@ def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
     my_env = os.environ.copy()
     my_env["VACCINE_HTTP_PORT"] = str(port)
 
-    print("Starting Tableau Desktop at '{}' with workbook '{}' with VACCINE_HTTP_PORT={}".format(tableauExePath, workbookPath, my_env["VACCINE_HTTP_PORT"]))
+    logging.info("Starting Tableau Desktop at '%s' with workbook '%s' with VACCINE_HTTP_PORT=%s", tableauExePath, workbookPath, my_env["VACCINE_HTTP_PORT"])
     p = subprocess.Popen([tableauExePath, workbookPath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=my_env)
 
     # Wait for 0.5s to check the status
@@ -100,7 +104,7 @@ def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
         return {"error": {"msg": "Tableau Desktop exited prematurely. Return code:{}".format(p.returncode),
                           "workbook": workbookPath}}
     else:
-        print("Tableau Desktop started with pid {}".format(p.pid))
+        logging.info("Tableau Desktop started with PID=%d", p.pid)
         return {"ok": {"pid": p.pid, "workbook": workbookPath}}
 
 
@@ -188,33 +192,35 @@ def nextPortIndex(vaccinePorts):
 # `twbxPath` : the path to the TWBX file to load and optimize
 # returns { "ok": { "file": <OPTIMIZED_PATH> } }
 def optimize_wrapper(twbxPath, sleepSeconds=10):
+    logging.info("Starting optimize TWBX for '%s'", twbxPath)
 
     # Figure out the next port we should use
     port = nextPortIndex(vaccinePorts)
 
     # Start Tableau Desktop with the file
-    print("--> Starting tableau with: {0}".format(twbxPath))
+    logging.info("--> Starting tableau with TWBX: %s", twbxPath)
     res = start_tableau(tableauConfig, twbxPath, port=port)
 
     # Error checking
     if "error" in res:
+        logging.error("Error while starting Tableau: %s", json.dumps(res))
         return res
 
 
     # Waiting for Tableau to start
     pid = res["ok"]["pid"]
-    print("--> Tableau Desktop PID: {0}".format(pid))
-    print("--> Wating for {0} seconds for Tableau Desktop #{1} to launch".format(sleepSeconds, pid))
+    logging.info("Wating for %d seconds for Tableau Desktop PID=%d to launch", sleepSeconds, pid)
     time.sleep(sleepSeconds)
 
     # Run the injection
-    print("--> injecting to {} using port {}".format(pid, port))
+    logging.info("Injecting to PID=%d using port %d", pid, port)
     res = try_injection(injectorConfig, pid, port)
     if "error" in res:
+        logging.error("Error during injection: %s", json.dumps(res))
         return res
 
     # Trigger actions
-    print("--> Optimize, save and exit")
+    logging.info("Optimize, save and exit")
     actions = ["&Optimize", "&Save", "E&xit"]
 
     # Call the actions
@@ -222,6 +228,7 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     menu = tde_optimize.get_menu(injectCfg)
     res = tde_optimize.find_and_trigger_actions(injectCfg, actions, menu)
     if "error" in res:
+        logging.error("Error during menu triggers: %s", json.dumps(res))
         return res
 
     # We should be OK at this point
@@ -230,6 +237,7 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
 
 # Wraps the creation of a combined TDSX file from a TWBX filename
 def wrapTwbxToTdsx(fn, twbxDir, tdsFile, tdsxFile):
+    logging.info("Starting to generate TDSX from '%s'", fn)
     res = None
     # call
     try:
@@ -243,7 +251,7 @@ def wrapTwbxToTdsx(fn, twbxDir, tdsFile, tdsxFile):
                 }}), 200
     except Exception as e:
        
-        print(">>> ERROR DURING TDSX CREATION:\n{0}".format( traceback.format_exc()))
+        logging.error("Error during TDSX creation: %s", traceback.format_exc())
         return json.dumps({"error": {"msg": "Error during TWBX to TDSX conversion"}}), 500
 
 
@@ -266,7 +274,8 @@ def trigger_optimize():
                 tdsFile=tds_uri, 
                 baseTwb=converterConfig['emptyWorkbookTemplate'],
                 tempDirName=converterConfig['temp'])
-    except:
+    except Exception:
+        logging.error("Error during TWBX creation: %s", traceback.format_exc())
         return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
 
