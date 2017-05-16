@@ -5,6 +5,7 @@ import sys
 import traceback
 import subprocess
 import re
+import utils
 from flask import Flask, request
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
@@ -259,13 +260,18 @@ def trigger_optimize():
     tde_uri = request.args.get('tde_uri', '').encode('ascii', 'ignore')
     tds_uri = request.args.get('tds_uri', '').encode('ascii', 'ignore')
 
+    # Generate temp directory
+    data_path = tds_uri.split(os.path.sep)
+    data_path.pop()
+    fullTempDir = utils.createTempDirectory(os.path.sep.join(data_path))
+    tempDir = fullTempDir.split(os.path.sep).pop()
     # Try the creation of a TWBX from the bits
     try:
         fn = TableauFileConverter.twbxFromTdeAndTds(
                 tdeFile=tde_uri,
                 tdsFile=tds_uri, 
                 baseTwb=converterConfig['emptyWorkbookTemplate'],
-                tempDirName=converterConfig['temp'])
+                tempDirName=tempDir)
     except:
         return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
@@ -283,7 +289,7 @@ def trigger_optimize():
         if "error" in res:
             return json.dumps(res), 500
 
-        return wrapTwbxToTdsx(fn, twbxDir=converterConfig['temp'], tdsFile=tds_uri, tdsxFile=tds_uri.split(os.path.sep).pop().replace('tds', 'tdsx'))
+        return wrapTwbxToTdsx(fn, twbxDir=tempDir, tdsFile=tds_uri, tdsxFile=tds_uri.split(os.path.sep).pop().replace('tds', 'tdsx'))
 
 
 

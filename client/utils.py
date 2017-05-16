@@ -2,6 +2,7 @@ import os
 import zipfile
 import requests
 import xmlintruder
+import tempfile
 
 
 def openfile(path):
@@ -54,3 +55,10 @@ def callHttpGet(twbxPath, twbxFileName):
     print('Calling: http://localhost:5000/optimize?file=' + params.get('file') )
     response = requests.get('http://localhost:5000/optimize', params=params)
     return response
+
+def createTempDirectory(path):
+    working_dir = os.getcwd()
+    os.chdir(path)
+    tdir = tempfile.mkdtemp(dir=path)
+    os.chdir(working_dir)
+    return tdir
