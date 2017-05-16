@@ -229,15 +229,17 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
 
 
 # Wraps the creation of a combined TDSX file from a TWBX filename
-def wrapTwbxToTdsx(fn):
+def wrapTwbxToTdsx(fn, twbxDir, tdsFile, tdsxFile):
     res = None
     # call
     try:
         mydir = fn.split(os.path.sep)
         twbxfn = mydir.pop()
+        twbxTempDir = os.path.join(os.path.sep.join(mydir), twbxDir)
+
         return json.dumps({"ok": {
                 "msg": "Created TDSX", 
-                "file":TableauFileConverter.twbxToTdsx(mydir, twbxfn)
+                "file":TableauFileConverter.twbxToTdsx(twbxTempDir, twbxfn, tdsFile, tdsxFile=tdsxFile)
                 }}), 200
     except Exception as e:
        
@@ -267,6 +269,7 @@ def trigger_optimize():
     except:
         return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
+
     # fn = request.args.get('file', '')
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
 
@@ -280,7 +283,7 @@ def trigger_optimize():
         if "error" in res:
             return json.dumps(res), 500
 
-        return wrapTwbxToTdsx(fn)
+        return wrapTwbxToTdsx(fn, twbxDir=converterConfig['temp'], tdsFile=tds_uri, tdsxFile=tds_uri.split(os.path.sep).pop().replace('tds', 'tdsx'))
 
 
 

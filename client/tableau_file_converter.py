@@ -77,12 +77,24 @@ def tdsxToTwbx(tdsxFileName,
 
     # Step x: Creat te twbx from twb + tde
     utils.createZip(twbxDir, twbxFileName)
-    
+
+    os.chdir(working_directory_store)
     return os.path.join(twbxDir, twbxFileName)
 
 
 
-def twbxToTdsx(twbxDir, twbxFileName, tdsxTempDir='tdsxTemp', tdsxFile='lookat.tdsx'):
+def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile='lookat.tdsx'):
+    
+    print(twbxDir, twbxFileName, tdsxTempDir, tdsxFile)
+
+    working_directory_store = os.getcwd()
+    full_dir_list = twbxDir.split(os.path.sep)
+    full_dir_list.pop()
+    full_dir = os.path.sep.join(full_dir_list)
+
+    # change wd
+    os.chdir(full_dir)
+
     # remove all file from twbx temp directory
     utils.deleteall(twbxDir)
 
@@ -91,13 +103,7 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsxTempDir='tdsxTemp', tdsxFile='lookat.t
 
     # get tde file
     # copy the original tds to this dir
-    tdsfiles = utils.getFiles(tdsxTempDir)
-    tdsfile = None
-    for tf in tdsfiles:
-        if tf.get('name').endswith('tds'):
-            # Copy to twb temp directory
-            shutil.copy(tf.get('full'), twbxDir)
-            tdsfile = tf
+    shutil.copy(tdsFile, twbxDir)
 
     # find twb file from the twbx
     twbfiles = utils.getFiles(twbxDir)
@@ -107,7 +113,7 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsxTempDir='tdsxTemp', tdsxFile='lookat.t
             twbfile = tf
 
     # copy twb database subtree back to the original tds file
-    tdsxmlstr = utils.openfile(tdsfile.get('full'))
+    tdsxmlstr = utils.openfile(tdsFile)
     twbxmlstr = utils.openfile(twbfile.get('full'))
     
     tdsIntruder = xmlintruder.XmlIntruder(tdsxmlstr)
@@ -132,10 +138,14 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsxTempDir='tdsxTemp', tdsxFile='lookat.t
         twbIntruder.deleteAllAttrib(twbds).addAllAttribs(twbds, attributes).insertInto('/workbook/datasources', twbds)
         tdsIntruder.settree(etree.tostring(twbds))
 
-    tdsIntruder.write(os.path.join(twbxDir, tdsfile.get('name')))
+    tdsIntruder.write(os.path.join(twbxDir, tdsFile.split(os.path.sep).pop()))
 
     os.remove(twbfile.get('full'))
     utils.createZip(twbxDir, tdsxFile)
+
+    # Clear temp files
+    shutil.rmtree(twbxDir)
+    os.remove(twbxFileName)
 
 
 def createTwbFromTds(twb, tds, path, tde):
