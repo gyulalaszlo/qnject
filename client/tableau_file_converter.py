@@ -88,7 +88,6 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile=
     print(twbxDir, twbxFileName, tdsxTempDir, tdsxFile)
 
     working_directory_store = os.getcwd()
-    # full_dir = os.path.join(tdeFile.split(os.path.sep).pop()).join(os.path.sep)
     full_dir_list = twbxDir.split(os.path.sep)
     full_dir_list.pop()
     full_dir = os.path.sep.join(full_dir_list)
@@ -105,13 +104,6 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile=
     # get tde file
     # copy the original tds to this dir
     shutil.copy(tdsFile, twbxDir)
-    # tdsfiles = utils.getFiles(tdsxTempDir)
-    # tdsfile = None
-    # for tf in tdsfiles:
-    #     if tf.get('name').endswith('tds'):
-    #         # Copy to twb temp directory
-    #         shutil.copy(tf.get('full'), twbxDir)
-    #         tdsfile = tf
 
     # find twb file from the twbx
     twbfiles = utils.getFiles(twbxDir)
@@ -150,6 +142,10 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile=
 
     os.remove(twbfile.get('full'))
     utils.createZip(twbxDir, tdsxFile)
+
+    # Clear temp files
+    shutil.rmtree(twbxDir)
+    os.remove(twbxFileName)
 
 
 def createTwbFromTds(twb, tds, path, tde):
