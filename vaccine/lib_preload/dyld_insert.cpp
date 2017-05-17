@@ -6,6 +6,9 @@
 #ifndef _MSC_VER
 #include <unistd.h>
 typedef void * HANDLE;
+# ifndef __stdcall
+#  define __stdcall
+# endif
 #else
 #include <process.h>
 #endif
