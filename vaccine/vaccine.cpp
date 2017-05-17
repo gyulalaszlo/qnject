@@ -267,7 +267,7 @@ namespace vaccine {
         if (path == nullptr) return;
 
 
-        DLOG_F(INFO, "Registering log file output: %s", path );
+        DLOG_F(INFO, "Registering log file output: %s", path);
         loguru::add_file(path, loguru::Append, loguru::Verbosity_MAX);
     }
 
@@ -322,7 +322,7 @@ namespace vaccine {
 
 
         // If we made it this far, we need to dispatch to an API handler
-        run_http_handler( nc, ev_data, hm, uri);
+        run_http_handler(nc, ev_data, hm, uri);
     }
 
     ////////////////////////////////////////////////////////////////////////////

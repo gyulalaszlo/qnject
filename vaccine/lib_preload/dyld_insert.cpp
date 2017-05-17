@@ -8,9 +8,7 @@
 #include "../vaccine.h"
 
 
-
 namespace {
-
 
 
 #ifdef _MSC_VER
@@ -30,7 +28,7 @@ namespace {
 
 
         dyld_insert_t_win() {
-			if (uintptr_t(hThread) == INVALID_THREAD_HANDLE) {
+            if (uintptr_t(hThread) == INVALID_THREAD_HANDLE) {
                 printf("Staring service thread\n");
                 vaccine::state = vaccine::mg_state::INITALIZING;
                 unsigned threadID;
@@ -42,7 +40,7 @@ namespace {
             }
         }
         ~dyld_insert_t_win() {
-			if (uintptr_t(hThread) != INVALID_THREAD_HANDLE) {
+            if (uintptr_t(hThread) != INVALID_THREAD_HANDLE) {
                 DLOG_F(INFO, "Stopping service thread()");
                 vaccine::state = vaccine::mg_state::SHUTDOWN_REQUESTED;
                 //service_thread->join();
