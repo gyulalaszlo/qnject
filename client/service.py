@@ -6,6 +6,7 @@ import traceback
 import subprocess
 import re
 import logging
+import tempfile
 from logger_initializer import *
 import utils
 from flask import Flask, request
@@ -36,6 +37,9 @@ twbConverterConfig = {
 # Initialize logger
 print("Setting log directory to: " + os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
 initialize_logger(os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
+
+# Create temp vaccine log file
+vaccine_log_file = tempfile.TemporaryFile()
 
 # Pre-configure the qnject handler
 baseUrl = "http://localhost:8000/api"
@@ -97,6 +101,7 @@ def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
     # Add the vaccine port to the inection stuff
     my_env = os.environ.copy()
     my_env["VACCINE_HTTP_PORT"] = str(port)
+    my_env["VACCINE_LOG_FILE"] = vaccine_log_file.name
 
     logging.info("Starting Tableau Desktop at '%s' with workbook '%s' with VACCINE_HTTP_PORT=%s", tableauExePath, workbookPath, my_env["VACCINE_HTTP_PORT"])
     p = subprocess.Popen([tableauExePath, workbookPath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=my_env)
@@ -300,12 +305,18 @@ def trigger_optimize():
     else:
         
         res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
-        
+
+        # TODO        
         # Error if optimize fails
+        # Copy
+        shutil.copyfile(vaccine_log_file.name, os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
+        # Rename
+        shutil.move(os.path.join(os.getcwd(), twbConverterConfig["logDirectory"], vaccine_log_file.name.split('os.path.sep').pop()), 'renamed_vacc_log')
         if "error" in res:
             return json.dumps(res), 500
 
         return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
+    
 
 
 
