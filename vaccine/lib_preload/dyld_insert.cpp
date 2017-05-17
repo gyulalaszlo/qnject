@@ -22,9 +22,7 @@ namespace {
 
     unsigned __stdcall SecondThreadFunc(void* pArguments)
     {
-        printf("In second thread...\n");
         vaccine::start_thread();
-
         return 0;
     }
 
@@ -32,24 +30,19 @@ namespace {
 
 
         dyld_insert_t_win() {
-            if (!service_thread) {
+			if (uintptr_t(hThread) == INVALID_THREAD_HANDLE) {
                 printf("Staring service thread\n");
-                //DLOG_F(INFO, "Starting service thread");
                 vaccine::state = vaccine::mg_state::INITALIZING;
                 unsigned threadID;
                 if (uintptr_t(hThread) == INVALID_THREAD_HANDLE) {
                     hThread = (HANDLE)_beginthreadex(NULL, 0, &SecondThreadFunc, NULL, 0, &threadID);
                 }
-                    // Create the second thread.
-                vaccine::start_thread();
-                //service_thread = new std::thread(vaccine::start_thread);
                 printf("Started service thread\n");
-                //DLOG_F(INFO, "Started service thread");
 
             }
         }
         ~dyld_insert_t_win() {
-            if (service_thread) {
+			if (uintptr_t(hThread) != INVALID_THREAD_HANDLE) {
                 DLOG_F(INFO, "Stopping service thread()");
                 vaccine::state = vaccine::mg_state::SHUTDOWN_REQUESTED;
                 //service_thread->join();
