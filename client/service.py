@@ -6,11 +6,11 @@ import traceback
 import subprocess
 import re
 import logging
+from logger_initializer import *
 import utils
 from flask import Flask, request
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
-
 
 
 
@@ -28,9 +28,14 @@ tableauConfig = {
 }
 
 twbConverterConfig = {
-    "emptyWorkbookTemplate": 'emptywb.twb',
+    "emptyWorkbookTemplate": "c:\\Work\\Tableau\\Netflix\\Master test\\base\\emptywb.twb",
+    "logDirectory": 'logs',
     "temp": 'twbxTemp',
 }
+
+# Initialize logger
+print("Setting log directory to: " + os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
+initialize_logger(os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
 
 # Pre-configure the qnject handler
 baseUrl = "http://localhost:8000/api"
@@ -43,7 +48,6 @@ valid_extensions = {
 }
 
 # APP ---------------------------
-
 
 app = Flask(__name__)
 
@@ -237,23 +241,22 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
 
 
 # Wraps the creation of a combined TDSX file from a TWBX filename
-def wrapTwbxToTdsx(fn, twbxDir, tdsFile, tdsxFile):
-    logging.info("Starting to generate TDSX from '%s'", fn)
-    res = None
+def wrapTwbxToTdsx(baseDir, tempDirName, tdsFileName):
+    logging.info("Starting to generate TDSX from '%s'", os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
     # call
     try:
-        mydir = fn.split(os.path.sep)
-        twbxfn = mydir.pop()
-        twbxTempDir = os.path.join(os.path.sep.join(mydir), twbxDir)
+        logging.info('--- File information start ---')
+
+        logging.info('--- File information end ---')
 
         return json.dumps({"ok": {
                 "msg": "Created TDSX", 
-                "file":TableauFileConverter.twbxToTdsx(twbxTempDir, twbxfn, tdsFile, tdsxFile=tdsxFile)
+                "file":TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName)
                 }}), 200
     except Exception as e:
-       
         logging.error("Error during TDSX creation: %s", traceback.format_exc())
         return json.dumps({"error": {"msg": "Error during TWBX to TDSX conversion"}}), 500
+        
 
 
 ################################################################################
@@ -271,21 +274,25 @@ def trigger_optimize():
     # Generate temp directory
     data_path = tds_uri.split(os.path.sep)
     data_path.pop()
-    fullTempDir = utils.createTempDirectory(os.path.sep.join(data_path))
-    tempDir = fullTempDir.split(os.path.sep).pop()
+
+    full_base_dir = os.path.sep.join(data_path)
+    tds_file_name = tds_uri.split(os.path.sep).pop()
+    tde_file_name = tde_uri.split(os.path.sep).pop()
+    temp_dir_name = utils.createTempDirectory(os.path.sep.join(data_path))
+
+
     # Try the creation of a TWBX from the bits
     try:
         fn = TableauFileConverter.twbxFromTdeAndTds(
-                tdeFile=tde_uri,
-                tdsFile=tds_uri, 
-                baseTwb=converterConfig['emptyWorkbookTemplate'],
-                tempDirName=tempDir)
+                baseDir=full_base_dir,
+                tempDirName=temp_dir_name,
+                tdeFileName=tde_file_name,
+                tdsFileName=tds_file_name, 
+                baseTwb=converterConfig['emptyWorkbookTemplate'])
     except Exception:
         logging.error("Error during TWBX creation: %s", traceback.format_exc())
-        # return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
-        return 'Ok'
+        return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
-    # fn = request.args.get('file', '')
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
 
     if fn == "":
@@ -298,7 +305,7 @@ def trigger_optimize():
         if "error" in res:
             return json.dumps(res), 500
 
-        return wrapTwbxToTdsx(fn, twbxDir=tempDir, tdsFile=tds_uri, tdsxFile=tds_uri.split(os.path.sep).pop().replace('tds', 'tdsx'))
+        return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
 
 
 
