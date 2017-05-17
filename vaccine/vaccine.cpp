@@ -97,26 +97,6 @@ namespace {
 
     }
 
-//    ////////////////////////////////////////////////////////////////////////////
-//    // Helpers for serving the Swagger JSON
-//    namespace {
-//        // swagger service description
-//        static nlohmann::json s_swagger_json =
-//                nlohmann::json({
-//                                       {"swagger", "2.0"},
-//                                       {"info",    {
-//                                                           {"version", "0.1.0"},
-//                                                           {"title", "qnject - injected in-process HTTP server"}
-//                                                   }
-//                                       },
-//                                       {"basePath", VACCINE_API_PREFIX},
-//                                       {"paths",   nlohmann::json({})}
-//                               });
-//
-//        // return with swagger_json file
-//        const nlohmann::json swagger_json() { return s_swagger_json; }
-//    }
-
     ////////////////////////////////////////////////////////////////////////////
     // Forward-declare some private shared data
     namespace {
@@ -196,7 +176,7 @@ namespace {
             if (starts_with(uri, PREFIX_VACCINE_SWAGGER_JSON)) {
                 DLOG_F(INFO, "Downloading "
                         VACCINE_SWAGGER_JSON);
-                send_json(nc, qnject::s_swagger_json, 200);
+                send_json(nc, qnject::swagger_json(), 200);
                 return;
             }
 
@@ -258,7 +238,7 @@ namespace vaccine {
         if (swagger_spec) {
             // Add handler to our swagger definition:
             // /<handler -> specification from json.h file
-            qnject::s_swagger_json["paths"].push_back(
+            qnject::swagger_json()["paths"].push_back(
                     {"/" + handler, nlohmann::json::parse(swagger_spec)});
         }
     }
@@ -268,22 +248,22 @@ namespace vaccine {
         return s_uri_handlers;
     };
 
-    // get parsed json object from a http PUT/POST data req
-    // TODO: test coverage
-    void parse_request_body(struct http_message* hm, nlohmann::json& req) {
-        req["uri"] = std::string(hm->uri.p, hm->uri.len);
-        req["method"] = std::string(hm->method.p, hm->method.len);
-        req["query"] = std::string(hm->query_string.p, hm->query_string.len);
-
-        if (hm->body.len > 0) {
-            std::string s(hm->body.p, hm->body.len);
-            try {
-                req["body"] = nlohmann::json::parse(s);
-            } catch (std::exception& ex) {
-                DLOG_F(ERROR, "Cannot parse request body: %s", ex.what());
-            }
-        }
-    }
+//    // get parsed json object from a http PUT/POST data req
+//    // TODO: test coverage
+//    void parse_request_body(struct http_message* hm, nlohmann::json& req) {
+//        req["uri"] = std::string(hm->uri.p, hm->uri.len);
+//        req["method"] = std::string(hm->method.p, hm->method.len);
+//        req["query"] = std::string(hm->query_string.p, hm->query_string.len);
+//
+//        if (hm->body.len > 0) {
+//            std::string s(hm->body.p, hm->body.len);
+//            try {
+//                req["body"] = nlohmann::json::parse(s);
+//            } catch (std::exception& ex) {
+//                DLOG_F(ERROR, "Cannot parse request body: %s", ex.what());
+//            }
+//        }
+//    }
 
     // send json response to the client
     void send_json(struct mg_connection* nc, nlohmann::json& j, int statusCode) {
@@ -329,7 +309,7 @@ namespace vaccine {
         if (starts_with(uri, PREFIX_VACCINE_SWAGGER_JSON)) {
             DLOG_F(INFO, "Downloading "
                     VACCINE_SWAGGER_JSON);
-            send_json(nc, qnject::s_swagger_json, 200);
+            send_json(nc, qnject::swagger_json(), 200);
             return;
         }
 
@@ -372,7 +352,7 @@ namespace vaccine {
         mg_set_protocol_http_websocket(nc);
 
         /* set listing host as baseuri */
-        qnject::s_swagger_json["host"] = std::string("localhost:") + http_port;
+        qnject::swagger_json()["host"] = std::string("localhost:") + http_port;
 
         /* mount UI. TODO: search for the right path */
         if (getenv("VACCINE_WEBROOT"))

@@ -43,8 +43,6 @@ namespace vaccine {
   // parsed contents of the swagger.json file
   const nlohmann::json swagger_json();
 
-  // helper functions to parse an html message body's json payload
-  void parse_request_body(struct http_message *hm, nlohmann::json & req);
 
   // helper function to return with json response from handlers 
   void send_json(struct mg_connection *nc, nlohmann::json & j, int statusCode = 200);

@@ -7,10 +7,15 @@
 #define MG_DISABLE_SHA1 1
 #define MG_DISABLE_MD5 1
 
-/* 
+
+
+// get rid of the "'LOGURU_UNSAFE_SIGNAL_HANDLER' macro redefined" warning
+#ifndef LOGURU_UNSAFE_SIGNAL_HANDLER
+/*
  * Disable loguru's unsafe signal handlers
  */
 #define LOGURU_UNSAFE_SIGNAL_HANDLER 0
+#endif
 
 /*
  * These values are automatically set according to their cmake variables.

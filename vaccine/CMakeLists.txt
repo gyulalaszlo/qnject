@@ -38,19 +38,13 @@ set(BRILLIANT_REQUEST request.h )
 set(MONGOOSE ../deps/mongoose/mongoose.c ../deps/mongoose/mongoose.h)
 set(LOGURU ../deps/loguru/loguru.hpp)
 set(JSON ../deps/json/json.hpp )
+set(SWAGGER_JSON swagger/swagger_json.cpp swagger/swagger_json.h)
 
 set(HANDLERS
         qobject-utils.h
         qwidget-json-helpers.h
 
         http-handlers/base.h
-#        http-handlers/qwidgets-list.h
-#        http-handlers/qwidgets-show.h
-#        http-handlers/qwidgets-update.h
-#        http-handlers/qwidgets-grab-image.h
-#        http-handlers/menu-tree-get.h
-#        http-handlers/menu-tree-trigger-action.h
-#        http-handlers/qwidgets-get-menubar.h
 		)
 
 set(VACCINE_COCTAIL_SOURCES
@@ -60,6 +54,8 @@ set(VACCINE_COCTAIL_SOURCES
         utils.hpp
         dyld-hooking.h
         lib_preload/dyld_insert.cpp
+
+        ${SWAGGER_JSON}
 
         ${HANDLERS}
 
@@ -177,8 +173,7 @@ else (WITH_QT)
     target_link_libraries(qnject ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 endif (WITH_QT)
 
-add_executable(qnject_swagger_json swagger_json.cpp swagger/swagger_json.h)
-target_link_libraries(qnject_swagger_json qnject)
+add_subdirectory(swagger)
 
 install(TARGETS qnject
         RUNTIME DESTINATION bin
