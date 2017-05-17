@@ -108,46 +108,38 @@ namespace {
     ////////////////////////////////////////////////////////////////////////////
 
     // Helper that wraps runnning a handler with exception wrapping and logging.
-    template<typename HandlerMap>
-    void run_http_handler(HandlerMap& handlers, struct mg_connection* nc, void* ev_data, struct http_message* hm,
+    void run_http_handler(struct mg_connection* nc, void* ev_data, struct http_message* hm,
                           const std::string& uri) {
-        // Get the name of the handler
-        std::string handler = get_handler_name(uri);
 
-        DLOG_SCOPE_F(INFO, "API request: '%.*s %s' => %s",
-                     (int) hm->method.len, hm->method.p, uri.c_str(), handler.c_str());
+        using qnject::api::method_not_found;
+        using brilliant::request::fromBody;
+        using namespace brilliant::route;
 
-        qwidget_handler(uri, nc, ev_data, hm);
+        DLOG_SCOPE_F(INFO, "API request: '%.*s %s'",
+                     (int) hm->method.len, hm->method.p, uri.c_str());
+
+
+        auto r = fromBody(nc, hm);
+
+        DLOG_F(INFO, "Serving URI: \"%s %s\" with post data >>>%.*s<<<",
+               r.req["method"].get<std::string>().c_str(),
+               uri.c_str(),
+               (int) hm->body.len,
+               hm->body.p);
+
+
+        auto handled = serums::qwidgets::qWidgetPath(make(r));
+
+        // if we get here then we arent in the qwidget path.
+        if (!handled) {
+            method_not_found(r);
+        }
         return;
-
-        // no handler? error!
-        if (handlers.count(handler) != 1) {
-            mg_http_send_error(nc, 404, "Handler not registred");
-            return;
-        }
-
-        // Run a wrapped handler
-        try {
-            // Since the handler expects an lvalue, we have to do this in two steps
-            std::string api_path(get_vaccine_api_path(uri));
-            handlers[handler](api_path, nc, ev_data, hm);
-        } catch (std::exception& ex) {
-            DLOG_F(ERROR, "Caught exception: %s", ex.what());
-            mg_http_send_error(nc, 500, ex.what());
-        } catch (...) {
-            DLOG_F(ERROR, "Unknown exception occured");
-            mg_http_send_error(nc, 500, "Unknwown error (exception)");
-        }
     }
 
-    using brilliant::route::prefix;
-    using brilliant::route::any_of;
-    using brilliant::Request;
-
-    //const auto handlerFn = prefix("api", any_of(
-    // qwidget
-
-    //));
+//    using brilliant::route::prefix;
+//    using brilliant::route::any_of;
+//    using brilliant::Request;
 
 
     template<typename Handler>
@@ -226,59 +218,60 @@ namespace vaccine {
     static constexpr auto s_default_http_port = "8000";
 
 
-    // map handler with their callbacks
-    static std::map<std::string, t_vaccine_api_handler> s_uri_handlers;
+//     map handler with their callbacks
+//    static std::map<std::string, t_vaccine_api_handler> s_uri_handlers;
 
 
-    // simply push the callback function into our big map of handlers
-    // this function is called from our handler "plugins"
-    void register_callback(std::string handler, t_vaccine_api_handler function,
-                           const unsigned char* swagger_spec) {
-        s_uri_handlers[handler] = function;
-        if (swagger_spec) {
-            // Add handler to our swagger definition:
-            // /<handler -> specification from json.h file
-            qnject::swagger_json()["paths"].push_back(
-                    {"/" + handler, nlohmann::json::parse(swagger_spec)});
-        }
-    }
-
-    // const getter for the registred handlers
-    const std::map<std::string, t_vaccine_api_handler> registered_handlers() {
-        return s_uri_handlers;
-    };
-
-//    // get parsed json object from a http PUT/POST data req
-//    // TODO: test coverage
-//    void parse_request_body(struct http_message* hm, nlohmann::json& req) {
-//        req["uri"] = std::string(hm->uri.p, hm->uri.len);
-//        req["method"] = std::string(hm->method.p, hm->method.len);
-//        req["query"] = std::string(hm->query_string.p, hm->query_string.len);
-//
-//        if (hm->body.len > 0) {
-//            std::string s(hm->body.p, hm->body.len);
-//            try {
-//                req["body"] = nlohmann::json::parse(s);
-//            } catch (std::exception& ex) {
-//                DLOG_F(ERROR, "Cannot parse request body: %s", ex.what());
-//            }
+//    // simply push the callback function into our big map of handlers
+//    // this function is called from our handler "plugins"
+//    void register_callback(std::string handler, t_vaccine_api_handler function,
+//                           const unsigned char* swagger_spec) {
+//        s_uri_handlers[handler] = function;
+//        if (swagger_spec) {
+//            // Add handler to our swagger definition:
+//            // /<handler -> specification from json.h file
+//            qnject::swagger_json()["paths"].push_back(
+//                    {"/" + handler, nlohmann::json::parse(swagger_spec)});
 //        }
 //    }
+//
+//    // const getter for the registred handlers
+//    const std::map<std::string, t_vaccine_api_handler> registered_handlers() {
+//        return s_uri_handlers;
+//    };
 
-    // send json response to the client
-    void send_json(struct mg_connection* nc, nlohmann::json& j, int statusCode) {
-        static const auto headers =
-                "Access-Control-Allow-Origin: *\r\n"
-                        "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept\r\n"
-                        "Content-Type: application/json";
+//    // send json response to the client
+//    void send_json(struct mg_connection* nc, nlohmann::json& j, int statusCode) {
+//        static const auto headers =
+//                "Access-Control-Allow-Origin: *\r\n"
+//                        "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept\r\n"
+//                        "Content-Type: application/json";
+//
+//        std::string d = j.dump(2);
+//
+//        mg_send_head(nc, statusCode, d.length(), headers);
+//        mg_send(nc, d.c_str(), d.length());
+//    }
 
-        std::string d = j.dump(2);
+    ////////////////////////////////////////////////////////////////////////////
 
-        mg_send_head(nc, statusCode, d.length(), headers);
-        mg_send(nc, d.c_str(), d.length());
+
+    // Tries to direct the output of the logger to the path specified by the
+    // `VACCINE_LOG_FILE` environment variable
+    void registerLogger() {
+        static bool loggerRegistered = false;
+        if (loggerRegistered) return;
+        else loggerRegistered = true;
+
+        const char* path = getenv("VACCINE_LOG_FILE");
+        if (path == nullptr) return;
+
+
+        DLOG_F(INFO, "Registering log file output: %s", path );
+        loguru::add_file(path, loguru::Append, loguru::Verbosity_MAX);
     }
 
-    ////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
     // this is our big fat HTTP event handler
     //
@@ -290,6 +283,11 @@ namespace vaccine {
     static void ev_handler(struct mg_connection* nc, int ev, void* ev_data) {
         // if not HTTP request, dont care about it for now
         if (ev != MG_EV_HTTP_REQUEST) { return; }
+
+        // TODO: Move logger registration handling to some proper place (but not into DLLMain)
+        // We have to register the logger output here, because this is the earliest time we can (almost)
+        // be sure that all of the Loguru global locks are initialized.
+        registerLogger();
 
         struct http_message* hm = (struct http_message*) ev_data;
 
@@ -324,10 +322,10 @@ namespace vaccine {
 
 
         // If we made it this far, we need to dispatch to an API handler
-        run_http_handler(s_uri_handlers, nc, ev_data, hm, uri);
+        run_http_handler( nc, ev_data, hm, uri);
     }
 
-    ////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
 
     // simply start our HTTP server thread
     void start_thread() {
@@ -335,7 +333,7 @@ namespace vaccine {
         struct mg_connection* nc;
         const char* http_port = getenv("VACCINE_HTTP_PORT") == NULL ? s_default_http_port : getenv("VACCINE_HTTP_PORT");
 
-        //DLOG_F(INFO, "Starting httpo thread at %s\n", http_port);
+//        DLOG_F(INFO, "Starting httpo thread at %s\n", http_port);
         /* Open listening socket */
         mg_mgr_init(&mgr, NULL);
         nc = mg_bind(&mgr, http_port, ev_handler);
