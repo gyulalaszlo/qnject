@@ -1,6 +1,7 @@
 import requests
 from collections import namedtuple
 import click
+import logging
 
 Config = namedtuple("QNjectConfig", "baseUrl")
 
@@ -61,8 +62,11 @@ def trigger_action_at(config, address):
     print("<-- Got {}".format(r.status_code))
     if r.status_code > 299:
         raise "Response with status code: " + str(r.status_code)
-
-    return r.json()
+    try:
+        return r.json()
+    except ValueError:
+        logging.error("Error during decoding of 'Trigger %s' respose", addresss)
+        return {"err": "error while parsing trigger response"}
 
 
 # Triggers a list of actions

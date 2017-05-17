@@ -13,44 +13,18 @@ import utils
 from flask import Flask, request
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
+from service_config import *
 
-
-
-# CONFIG --------------------------
-
-injectorConfig = {
-    # "injector-cmd": "Injector64.exe",
-    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe",
-    "dll": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\qnject.dll",
-    "process-name": "tableau.exe",
-}
-
-tableauConfig = {
-    "tableau.exe": "C:\\Program Files\\Tableau\\Tableau 10.2\\bin\\tableau.exe",
-}
-
-twbConverterConfig = {
-    "emptyWorkbookTemplate": "c:\\Work\\Tableau\\Netflix\\Master test\\base\\emptywb.twb",
-    "logDirectory": 'logs',
-    "temp": 'twbxTemp',
-}
 
 # Initialize logger
-print("Setting log directory to: " + os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
-initialize_logger(os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
-
-# Create temp vaccine log file
-vaccine_log_file = tempfile.TemporaryFile()
+print("Setting log directory to: " + twbConverterConfig["logDirectory"])
+initialize_logger(twbConverterConfig["logDirectory"])
 
 # Pre-configure the qnject handler
 baseUrl = "http://localhost:8000/api"
 qnjectConfig = tde_optimize.Config(baseUrl=baseUrl)
 upload_temp_directory = 'uploads'
 
-valid_extensions = {
-    'datasource': ['tde', 'tds', 'tdsx'],
-    'workbook': ['twb', 'twbx']
-}
 
 # APP ---------------------------
 
@@ -98,11 +72,11 @@ def try_injection(cfg, pid, port=8000):
 
 
 # Launches tableau and returns th POpen object
-def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
+def launch_tableau_using_popen(tableauExePath, workbookPath, vaccineLogFile, port=8000 ):
     # Add the vaccine port to the inection stuff
     my_env = os.environ.copy()
     my_env["VACCINE_HTTP_PORT"] = str(port)
-    my_env["VACCINE_LOG_FILE"] = vaccine_log_file.name
+    my_env["VACCINE_LOG_FILE"] = vaccineLogFile
 
     logging.info("Starting Tableau Desktop at '%s' with workbook '%s' with VACCINE_HTTP_PORT=%s", tableauExePath, workbookPath, my_env["VACCINE_HTTP_PORT"])
     p = subprocess.Popen([tableauExePath, workbookPath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=my_env)
@@ -119,8 +93,8 @@ def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
         return {"ok": {"pid": p.pid, "workbook": workbookPath}}
 
 
-def start_tableau(cfg, twb, port=8000):
-    return launch_tableau_using_popen(cfg["tableau.exe"],  twb, port=port)
+def start_tableau(cfg, twb, vaccineLogFile, port=8000):
+    return launch_tableau_using_popen(cfg["tableau.exe"],  twb, vaccineLogFile, port=port)
 
 
 # MAKE SURE WE ARE OK AND CAN BE DEBUGGED REMOTELY
@@ -208,9 +182,13 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     # Figure out the next port we should use
     port = nextPortIndex(vaccinePorts)
 
+    # Create vaccine log file
+    # vaccine_log_file = tempfile.mkstemp(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
+    vaccine_log_file = tempfile.TemporaryFile(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
+
     # Start Tableau Desktop with the file
     logging.info("--> Starting tableau with TWBX: %s", twbxPath)
-    res = start_tableau(tableauConfig, twbxPath, port=port)
+    res = start_tableau(tableauConfig, twbxPath, vaccineLogFile=vaccine_log_file.name, port=port)
 
     # Error checking
     if "error" in res:
@@ -238,6 +216,19 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     injectCfg = tde_optimize.Config(baseUrl="http://localhost:" + str(port) + "/api")
     menu = tde_optimize.get_menu(injectCfg)
     res = tde_optimize.find_and_trigger_actions(injectCfg, actions, menu)
+
+    # TODO
+    # Create vaccine log for the process
+    # vaccine_log_file[0].close()
+
+    if os.path.isfile(vaccine_log_file.name):
+        logging.info('Vaccine: ' + vaccine_log_file.name + ' to ' + os.path.join(twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log'))
+        os.system ("copy %s %s" % (vaccine_log_file.name, os.path.join(twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log')))
+        # shutil.copy(vaccine_log_file.name, os.path.join(os.getcwd(), twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log'))
+    else:
+        logging.info('Vaccine temp log file already deleted')
+
+
     if "error" in res:
         logging.error("Error during menu triggers: %s", json.dumps(res))
         return res
@@ -304,22 +295,15 @@ def trigger_optimize():
     if fn == "":
         return json.dumps({"error": {"msg": "a 'file' url parameter must be provided."}}), 500
     else:
-        
+        # Create vaccine here
+        # pass to optimize_wrapper
         res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
 
-        # TODO        
-        # Error if optimize fails
-        # Copy
-        shutil.copyfile(vaccine_log_file.name, os.path.join(os.getcwd(), twbConverterConfig["logDirectory"]))
-        # Rename
-        shutil.move(os.path.join(os.getcwd(), twbConverterConfig["logDirectory"], vaccine_log_file.name.split('os.path.sep').pop()), 'renamed_vacc_log')
         if "error" in res:
             return json.dumps(res), 500
 
         return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
     
-
-
 
 
 

@@ -8,6 +8,10 @@ def initialize_logger(output_dir):
     # Create logging directory if not exits
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
+
+    # Create temp dir inside log for temp vaccine logs
+    if not os.path.isdir(os.path.join(output_dir, 'vaccine_temp')):
+        os.makedirs(os.path.join(output_dir, 'vaccine_temp'))
     
     # create console handler and set level to info
     handler = logging.StreamHandler()

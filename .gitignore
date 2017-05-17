@@ -36,3 +36,5 @@ build-qt_testapp*
 tags
 qnject_config.h
 .vscode
+client/logs/**
+client/*.pyc
