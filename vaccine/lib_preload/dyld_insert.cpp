@@ -5,10 +5,11 @@
 
 #ifndef _MSC_VER
 #include <unistd.h>
-#include <process.h>
+typedef void * HANDLE;
 #else
-
+#include <process.h>
 #endif
+
 #include <thread>
 #include "../../deps/loguru/loguru.hpp"
 

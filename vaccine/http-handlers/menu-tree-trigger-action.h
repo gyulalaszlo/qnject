@@ -19,6 +19,7 @@ namespace qnject {
 
             QAction* action = qobject_cast<QAction*>(obj);
             if (action == nullptr) { return brilliant::response::error(404, "Selected QObject is not a QAction"); }
+            if (!action->isEnabled()) { return brilliant::response::error(403, "Selected action is not enabled"); }
 
             DLOG_F(INFO, "Triggering action '%s' @ %s", action->text().toStdString().c_str(), address_to_string(action).c_str());
             action->trigger();

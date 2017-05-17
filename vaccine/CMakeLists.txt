@@ -55,6 +55,7 @@ set(HANDLERS
 
 set(VACCINE_COCTAIL_SOURCES
         #vaccine.cpp
+        ${COMPILED_RESOURCES}
         vaccine.h
         utils.hpp
         dyld-hooking.h
@@ -66,7 +67,6 @@ set(VACCINE_COCTAIL_SOURCES
         ${BRILLIANT_REQUEST}
 
         ${VACCINE_QT_SOURCES}
-        ${COMPILED_RESOURCES}
   )
 
 
@@ -134,6 +134,7 @@ if (WITH_QT)
   
         qobject-utils.h
         qwidget-json-helpers.h
+        ${COMPILED_RESOURCES}
 
         http-handlers/base.h
         http-handlers/qwidgets-list.h
