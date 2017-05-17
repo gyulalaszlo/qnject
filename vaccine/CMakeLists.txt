@@ -1,6 +1,6 @@
 # Generate json.h files from json path definitions
 #file(GLOB COMPILED_RESOURCES "*.json")
-set(COMPILED_RESOURCES echo.json qwidget.json qobject.swagger.json)
+set(COMPILED_RESOURCES echo.json qwidget.json)
 foreach (INPUT_FILE ${COMPILED_RESOURCES})
     get_filename_component(INPUT_FILE_NAME ${INPUT_FILE} NAME NOCACHE)
     set(OUTPUT_FILE ${INPUT_FILE_NAME}.h)
