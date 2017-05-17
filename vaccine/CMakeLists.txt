@@ -177,7 +177,7 @@ else (WITH_QT)
     target_link_libraries(qnject ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 endif (WITH_QT)
 
-add_executable(qnject_swagger_json swagger_json.cpp)
+add_executable(qnject_swagger_json swagger_json.cpp swagger/swagger_json.h)
 target_link_libraries(qnject_swagger_json qnject)
 
 install(TARGETS qnject
