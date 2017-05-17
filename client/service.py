@@ -7,6 +7,7 @@ import subprocess
 import re
 import logging
 import tempfile
+import shutil
 from logger_initializer import *
 import utils
 from flask import Flask, request
