@@ -1,14 +1,16 @@
 # Generate json.h files from json path definitions
-file(GLOB COMPILED_RESOURCES "*.json")
+#file(GLOB COMPILED_RESOURCES "*.json")
+set(COMPILED_RESOURCES echo.json qwidget.json qobject.swagger.json)
 foreach (INPUT_FILE ${COMPILED_RESOURCES})
     get_filename_component(INPUT_FILE_NAME ${INPUT_FILE} NAME NOCACHE)
     set(OUTPUT_FILE ${INPUT_FILE_NAME}.h)
     add_custom_command(
             OUTPUT ${OUTPUT_FILE}
             COMMAND ${RESOURCE_COMPILER} -i ${INPUT_FILE_NAME} ${OUTPUT_FILE}
-            DEPENDS ${INPUT_FILE_NAME}
+            DEPENDS ${INPUT_FILE}
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMENT "Compiling ${INPUT_FILE_NAME} to C header file ${OUTPUT_FILE}")
+            COMMENT "Compiling ${INPUT_FILE} to C header file ${OUTPUT_FILE} inside ${CMAKE_CURRENT_SOURCE_DIR}"
+    )
     list(APPEND COMPILED_RESOURCES ${OUTPUT_FILE})
 endforeach ()
 

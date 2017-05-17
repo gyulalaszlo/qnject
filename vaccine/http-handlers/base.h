@@ -152,6 +152,20 @@ namespace qnject {
 namespace qnject {
     namespace api {
 
+
+        // send json response to the client
+        inline void send_json(struct mg_connection* nc, nlohmann::json& j, int statusCode) {
+            static const auto headers =
+                    "Access-Control-Allow-Origin: *\r\n"
+                            "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept\r\n"
+                            "Content-Type: application/json";
+
+            std::string d = j.dump(2);
+
+            mg_send_head(nc, statusCode, d.length(), headers);
+            mg_send(nc, d.c_str(), d.length());
+        }
+
         // using namespace brilliant::route;
 
         // for now use these, revisit later
@@ -168,7 +182,7 @@ namespace qnject {
             bool operator()(const Request& r, Args ...args) const {
                 // lvalue is needed here
                 Json ret = fn(r, args...);
-                vaccine::send_json(r.connection, ret, 200);
+                send_json(r.connection, ret, 200);
                 return true;
             }
         };
@@ -204,13 +218,13 @@ namespace qnject {
 
                 // if error
                 if (statusCode < 299) {
-                    vaccine::send_json(r.connection, resp, statusCode);
+                    send_json(r.connection, resp, statusCode);
                     return true;
                 }
 
                 // we didn't find widget like this
                 Json err = {{"error", "Widget not found"}};
-                vaccine::send_json(r.connection, err, statusCode);
+                send_json(r.connection, err, statusCode);
                 return false;
             }
         };
@@ -375,7 +389,7 @@ namespace qnject {
 
             Json resp;
             resp["error"] = "Method not found";
-            vaccine::send_json(r.connection, resp, 404);
+            send_json(r.connection, resp, 404);
             return true;
         }
 

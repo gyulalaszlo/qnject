@@ -44,8 +44,8 @@ TEST_CASE("QT Widget tests", "[qt]") {
     }
   }
 
-  SECTION("qobject is registred as callback") {
-    CHECK( vaccine::registered_handlers().find( "qobject" ) != vaccine::registered_handlers().end() );
-  }
+//  SECTION("qobject is registred as callback") {
+//    CHECK( vaccine::registered_handlers().find( "qobject" ) != vaccine::registered_handlers().end() );
+//  }
 }
 
