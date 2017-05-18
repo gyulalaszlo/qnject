@@ -36,5 +36,9 @@ build-qt_testapp*
 tags
 qnject_config.h
 .vscode
+
 coctail-recepie-qnject.cpp
 serum-qwidgetIngredient.hpp
+
+client/logs/**
+client/*.pyc

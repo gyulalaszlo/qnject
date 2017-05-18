@@ -1,11 +1,15 @@
 import os
 import zipfile
 import requests
+from datetime import datetime
+import logging
+import tzlocal
 import xmlintruder
 import tempfile
 
 
 def openfile(path):
+    logging.info('Opening file: ' + path)
     text = ''
     if not os.path.isfile(path):
         raise Exception("File not found: {path}".format(path=path))
@@ -15,10 +19,12 @@ def openfile(path):
     return text
 
 def unzip(source_filename, dest_dir):
+    logging.info('Extracting file: ' + source_filename + ' to ' + dest_dir)
     with zipfile.ZipFile(source_filename) as zf:
         zf.extractall(dest_dir)
 
 def deleteall(path):
+    logging.info('Deleting directory: ' + path)
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
             os.remove(os.path.join(root, name))
@@ -38,27 +44,58 @@ def getFiles(path):
     
 
 def createZip(src, dest):
-    wd = os.getcwd()
+    logging.info('Creating pack from ' + src + ' to ' + dest)
     foo = zipfile.ZipFile(dest, 'w')
-    os.chdir(src)
-    for root, dirs, files in os.walk('.'):
+    for root, dirs, files in os.walk(src):
         for f in files:
-            print(f)
-            foo.write(os.path.join(root, f))
+            logging.info('\tAdding file: ' + os.path.join(root, f))
+            foo.write(os.path.join(root, f), f)
 
     foo.close()
-    os.chdir(wd)
 
 def callHttpGet(twbxPath, twbxFileName):
     params = {'file': os.path.join(twbxPath, twbxFileName)}
 
-    print('Calling: http://localhost:5000/optimize?file=' + params.get('file') )
+    logging.info('Calling: http://localhost:5000/optimize?file=' + params.get('file') )
     response = requests.get('http://localhost:5000/optimize', params=params)
     return response
 
+# Creates a temporary directory in path, and return only the name of it without the path
 def createTempDirectory(path):
-    working_dir = os.getcwd()
-    os.chdir(path)
-    tdir = tempfile.mkdtemp(dir=path)
-    os.chdir(working_dir)
-    return tdir
+    fullTempDir = tempfile.mkdtemp(dir=path)
+    logging.info('Creating temporary directory: ' + fullTempDir)
+    return fullTempDir.split(os.path.sep).pop()
+
+
+# Convert the unix timestamp ("seconds since epoch") to the local time
+def getTimeString(stamp):
+    unix_timestamp = float(stamp)
+    local_timezone = tzlocal.get_localzone() # get pytz timezone
+    local_time = datetime.fromtimestamp(unix_timestamp, local_timezone)
+    return local_time.strftime("%Y-%m-%d %H:%M:%S.%f%z (%Z)")
+
+
+# Return the file info string
+# file name(size) - modified
+def getFileInfo(filePath, callback):
+    stat = os.stat(filePath)
+    name = filePath.split(os.path.sep).pop()
+    sizeInByte = stat[ST_SIZE]
+    atime = stat[ST_ATIME]
+    mtime = stat[ST_MTIME]
+    ctime = stat[ST_CTIME]
+    return name + '(' + sizeInByte + '): ' + getTimeString(atime) + ', '\
+        + getTimeString(mtime) + ', '\
+        + getTimeString(mtime)
+
+def getZipFileInfo(path):
+    list = None
+    result = {}
+    with zipfile.ZipFile(path, 'r') as myzip:
+        for f in myzip.infolist():
+            result[f.filename] = {
+                "size": f.file_size,
+                "date": "{0}-{1}-{2} {3}:{4}:{5}".format(*f.date_time)
+            }
+
+    return result

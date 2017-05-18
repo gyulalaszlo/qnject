@@ -6,44 +6,22 @@ import traceback
 import subprocess
 import re
 import logging
+import tempfile
+import shutil
+from logger_initializer import *
 import utils
 from flask import Flask, request
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
+from service_config import *
 
 
+# Initialize logger
+logging.info("Setting log directory to: " + twbConverterConfig["logDirectory"])
+initialize_logger(twbConverterConfig["logDirectory"])
 
-
-# CONFIG --------------------------
-
-injectorConfig = {
-    # "injector-cmd": "Injector64.exe",
-    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe",
-    "dll": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\qnject.dll",
-    "process-name": "tableau.exe",
-}
-
-tableauConfig = {
-    "tableau.exe": "C:\\Program Files\\Tableau\\Tableau 10.2\\bin\\tableau.exe",
-}
-
-twbConverterConfig = {
-    "emptyWorkbookTemplate": 'emptywb.twb',
-    "temp": 'twbxTemp',
-}
-
-# Pre-configure the qnject handler
-baseUrl = "http://localhost:8000/api"
-qnjectConfig = tde_optimize.Config(baseUrl=baseUrl)
-upload_temp_directory = 'uploads'
-
-valid_extensions = {
-    'datasource': ['tde', 'tds', 'tdsx'],
-    'workbook': ['twb', 'twbx']
-}
 
 # APP ---------------------------
-
 
 app = Flask(__name__)
 
@@ -89,10 +67,11 @@ def try_injection(cfg, pid, port=8000):
 
 
 # Launches tableau and returns th POpen object
-def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
+def launch_tableau_using_popen(tableauExePath, workbookPath, vaccineLogFile, port=8000 ):
     # Add the vaccine port to the inection stuff
     my_env = os.environ.copy()
     my_env["VACCINE_HTTP_PORT"] = str(port)
+    my_env["VACCINE_LOG_FILE"] = vaccineLogFile
 
     logging.info("Starting Tableau Desktop at '%s' with workbook '%s' with VACCINE_HTTP_PORT=%s", tableauExePath, workbookPath, my_env["VACCINE_HTTP_PORT"])
     p = subprocess.Popen([tableauExePath, workbookPath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=my_env)
@@ -109,8 +88,8 @@ def launch_tableau_using_popen(tableauExePath, workbookPath, port=8000):
         return {"ok": {"pid": p.pid, "workbook": workbookPath}}
 
 
-def start_tableau(cfg, twb, port=8000):
-    return launch_tableau_using_popen(cfg["tableau.exe"],  twb, port=port)
+def start_tableau(cfg, twb, vaccineLogFile, port=8000):
+    return launch_tableau_using_popen(cfg["tableau.exe"],  twb, vaccineLogFile, port=port)
 
 
 # MAKE SURE WE ARE OK AND CAN BE DEBUGGED REMOTELY
@@ -120,45 +99,13 @@ def root():
     return "TDE Optimizer"
 
 
-@app.route("/ping")
-def ping(): return "pong"
-
 
 # Get the config for debugging
-@app.route("/config")
+@app.route("/v1/config")
 def get_config():
-    return str(json.dumps({"baseUrl": qnjectConfig.baseUrl}))
-
-# GENERATING
-# @app.route("/generator", methods=['GET'])
-# def generator_help():
-#     return json.dumps({"info": {"msg": "Generator services root: use '/generator/start?files=x.tds,x.tde' to start"}})
-
-
-# TRIGGERING --------------------------
-
-@app.route("/triggers/save")
-def trigger_save():
-    actions = ["&Optimize", "&Save"]
-
-    # Call the actions
-    menu = tde_optimize.get_menu(qnjectConfig)
-    return json.dumps(tde_optimize.find_and_trigger_actions(qnjectConfig, actions, menu))
-
-
-@app.route("/triggers/do-inject")
-def trigger_injection():
-    return json.dumps(try_injection(injectorConfig, request.args.get('pid', None)))
-
-
-@app.route("/triggers/start-tableau")
-def trigger_open_tableau():
-    fn = request.args.get('file', '')
-    if fn == "":
-        return json.dumps({"error": {"msg": "a 'file' url parameter must be provided."}}), 405
-    else:
-        return json.dumps(start_tableau(tableauConfig, fn))
-
+    return str(json.dumps({"injectorConfig": injectorConfig,
+                           "tableauConfig": tableauConfig,
+                           "twbConverterConfig": twbConverterConfig}))
 
 
 def num(s, default=0):
@@ -179,8 +126,8 @@ vaccinePorts = {
     "max": 8999
 }
 
-# Gets the next (valid) port for the vaccine
 def nextPortIndex(vaccinePorts):
+    """Gets the next (valid) port for the vaccine"""
     pmin = vaccinePorts["min"]
     pmax = vaccinePorts["max"]
     nextPort = (vaccinePorts["i"] % (pmax - pmin)) + pmin
@@ -188,19 +135,24 @@ def nextPortIndex(vaccinePorts):
     return nextPort
 
 ################################################################################
-# Tries to optimize a TWBX using the qnject service.
-#
-# `twbxPath` : the path to the TWBX file to load and optimize
-# returns { "ok": { "file": <OPTIMIZED_PATH> } }
 def optimize_wrapper(twbxPath, sleepSeconds=10):
+    """ Tries to optimize a TWBX using the qnject service.
+
+    `twbxPath` : the path to the TWBX file to load and optimize
+     returns { "ok": { "file": <OPTIMIZED_PATH> } }
+    """
     logging.info("Starting optimize TWBX for '%s'", twbxPath)
 
     # Figure out the next port we should use
     port = nextPortIndex(vaccinePorts)
 
+    # Create vaccine log file
+    # vaccine_log_file = tempfile.mkstemp(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
+    vaccine_log_file = tempfile.TemporaryFile(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
+
     # Start Tableau Desktop with the file
     logging.info("--> Starting tableau with TWBX: %s", twbxPath)
-    res = start_tableau(tableauConfig, twbxPath, port=port)
+    res = start_tableau(tableauConfig, twbxPath, vaccineLogFile=vaccine_log_file.name, port=port)
 
     # Error checking
     if "error" in res:
@@ -228,6 +180,19 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     injectCfg = tde_optimize.Config(baseUrl="http://localhost:" + str(port) + "/api")
     menu = tde_optimize.get_menu(injectCfg)
     res = tde_optimize.find_and_trigger_actions(injectCfg, actions, menu)
+
+    # TODO
+    # Create vaccine log for the process
+    # vaccine_log_file[0].close()
+
+    if os.path.isfile(vaccine_log_file.name):
+        logging.info('Vaccine: ' + vaccine_log_file.name + ' to ' + os.path.join(twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log'))
+        os.system ("copy %s %s" % (vaccine_log_file.name, os.path.join(twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log')))
+        # shutil.copy(vaccine_log_file.name, os.path.join(os.getcwd(), twbConverterConfig["logDirectory"], 'vaccine_' + str(pid) + '.log'))
+    else:
+        logging.info('Vaccine temp log file already deleted')
+
+
     if "error" in res:
         logging.error("Error during menu triggers: %s", json.dumps(res))
         return res
@@ -236,72 +201,115 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     return {"ok": {"msg": "Triggered actions", "actions": res}}
 
 
-# Wraps the creation of a combined TDSX file from a TWBX filename
-def wrapTwbxToTdsx(fn, twbxDir, tdsFile, tdsxFile):
-    logging.info("Starting to generate TDSX from '%s'", fn)
-    res = None
+
+def wrapTwbxToTdsx(baseDir, tempDirName, tdsFileName):
+    """Wraps the creation of a combined TDSX file from a TWBX filename"""
+    logging.info("Starting to generate TDSX from '%s'", os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
     # call
     try:
-        mydir = fn.split(os.path.sep)
-        twbxfn = mydir.pop()
-        twbxTempDir = os.path.join(os.path.sep.join(mydir), twbxDir)
+        logging.info('--- File information start ---')
+
+        logging.info('--- File information end ---')
 
         return json.dumps({"ok": {
-                "msg": "Created TDSX", 
-                "file":TableauFileConverter.twbxToTdsx(twbxTempDir, twbxfn, tdsFile, tdsxFile=tdsxFile)
+                "msg": "Created TDSX",
+                "file":TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName)
                 }}), 200
     except Exception as e:
-       
         logging.error("Error during TDSX creation: %s", traceback.format_exc())
         return json.dumps({"error": {"msg": "Error during TWBX to TDSX conversion"}}), 500
+
+
+
+################################################################################
+
+
+def requires_query_argument(name):
+    arg = request.args.get(name, None)
+    if arg is None:
+        return ({"msg": "a '" + name + "' url parameter must be provided."}, None)
+    else:
+        return (None,arg.encode('ascii', 'ignore'))
+
 
 
 ################################################################################
 
 # Actual optimize endpoint
 
-@app.route("/optimize")
+@app.route("/v1/optimize")
 def trigger_optimize():
+    """ Optimizes a pair of Tableau Workbook and Datasource files.
+
+
+    Usage:
+        GET /v1/optimize?tde_uri=<TDE_FILE>&tds_uri=<TDS_FILE>
+        -> 200 OK => {"ok": { "msg": "Created TDSX", "file":<OUTPUT_TDSX_PATH> }}
+
+        GET /v1/optimize?tde_uri=<TDE_FILE>&tds_uri=<TDS_FILE>
+        -> 500 ERROR => {"error": { "msg": <REASON>, <...ERROR_METADATA> }}
+
+    Required parameters:
+
+        - tde_uri: full local path of the TDE file to use as base
+        - tds_uri: full local path of the TDS file describing the datasource and the calculations
+
+            """
+    ########################################
+
+    (tde_uri_error, tde_uri) = requires_query_argument('tde_uri')
+    (tds_uri_error, tds_uri) = requires_query_argument('tds_uri')
+
+    if tde_uri_error is not None or tds_uri_error is not None:
+        return json.dumps({"error": {"msg": "Missing required arguments", "results":[tds_uri_error, tde_uri_error]}})
+
+    ########################################
 
     converterConfig = twbConverterConfig
+    file_info = {}
 
-    tde_uri = request.args.get('tde_uri', '').encode('ascii', 'ignore')
-    tds_uri = request.args.get('tds_uri', '').encode('ascii', 'ignore')
+    ########################################
 
     # Generate temp directory
     data_path = tds_uri.split(os.path.sep)
     data_path.pop()
-    fullTempDir = utils.createTempDirectory(os.path.sep.join(data_path))
-    tempDir = fullTempDir.split(os.path.sep).pop()
+
+    full_base_dir = os.path.sep.join(data_path)
+    tds_file_name = tds_uri.split(os.path.sep).pop()
+    tde_file_name = tde_uri.split(os.path.sep).pop()
+    temp_dir_name = utils.createTempDirectory(os.path.sep.join(data_path))
+
+    ########################################
+
     # Try the creation of a TWBX from the bits
     try:
         fn = TableauFileConverter.twbxFromTdeAndTds(
-                tdeFile=tde_uri,
-                tdsFile=tds_uri, 
-                baseTwb=converterConfig['emptyWorkbookTemplate'],
-                tempDirName=tempDir)
+                baseDir=full_base_dir,
+                tempDirName=temp_dir_name,
+                tdeFileName=tde_file_name,
+                tdsFileName=tds_file_name,
+                baseTwb=converterConfig['emptyWorkbookTemplate'])
     except Exception:
         logging.error("Error during TWBX creation: %s", traceback.format_exc())
-        # return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
-        return 'Ok'
+        return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
-    # fn = request.args.get('file', '')
+    ########################################
+
+    file_info['start'] = utils.getZipFileInfo(fn)
+
+    # Sleep till we load the TDE (or do we)
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
 
-    if fn == "":
-        return json.dumps({"error": {"msg": "a 'file' url parameter must be provided."}}), 500
-    else:
-        
-        res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
-        
-        # Error if optimize fails
-        if "error" in res:
-            return json.dumps(res), 500
+    # Create vaccine here pass to optimize_wrapper
+    res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
+    file_info['optimized'] = utils.getZipFileInfo(fn)
 
-        return wrapTwbxToTdsx(fn, twbxDir=tempDir, tdsFile=tds_uri, tdsxFile=tds_uri.split(os.path.sep).pop().replace('tds', 'tdsx'))
+    logging.info(json.dumps(file_info, indent=4, sort_keys=False))
 
+    if "error" in res:
+        return json.dumps(res), 500
 
-
+    return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
 
 
 # MAIN --------------------------

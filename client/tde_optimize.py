@@ -1,6 +1,7 @@
 import requests
 from collections import namedtuple
 import click
+import logging
 
 Config = namedtuple("QNjectConfig", "baseUrl")
 
@@ -61,8 +62,11 @@ def trigger_action_at(config, address):
     print("<-- Got {}".format(r.status_code))
     if r.status_code > 299:
         raise "Response with status code: " + str(r.status_code)
-
-    return r.json()
+    try:
+        return r.json()
+    except ValueError:
+        logging.error("Error during decoding of 'Trigger %s' respose", addresss)
+        return {"err": "error while parsing trigger response"}
 
 
 # Triggers a list of actions
@@ -97,18 +101,18 @@ if __name__ == '__main__':
     @click.option('--server', default="http://localhost:8000/api", help='The QNject server to connect to')
     @click.argument('actions', nargs=-1)
     def main(actions, server):
-        """ Connect to a QNjects server injected into Tableau Desktop and runs Optimize then Save on a workbook 
-        
+        """ Connect to a QNjects server injected into Tableau Desktop and runs Optimize then Save on a workbook
+
         The 'ACTIONS' are the actions to search for by text (they will be executed in the same order).
-        
+
         Examples:
 
         ./env/bin/python tde_optimize.py --help
-        
+
         ./env/bin/python tde_optimize.py
-        
+
         ./env/bin/python tde_optimize.py "&Save" --server http://localhost:12345
-                
+
         """
         config = Config(baseUrl=server)
 

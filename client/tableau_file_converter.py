@@ -1,45 +1,23 @@
 import os
 import shutil
+import logging
 from lxml import etree
 
 import utils
 import xmlintruder
 
-def twbxFromTdeAndTds(tdeFile, tdsFile, baseTwb='emptywb.twb', tempDirName='twbxTemp'):
-    # Get dir
-    # for now same directory fro tde and tds, anyway copy to one dir
-    # craete temp for twbx
-    working_directory_store = os.getcwd()
-    # full_dir = os.path.join(tdeFile.split(os.path.sep).pop()).join(os.path.sep)
-    full_dir_list = tdeFile.split(os.path.sep)
-    full_dir_list.pop()
-    full_dir = os.path.sep.join(full_dir_list)
-
-    # change wd
-    os.chdir(full_dir)
-
-    # create temp dir
-    if not os.path.exists(tempDirName):
-        os.mkdir(tempDirName)
-
-    # os.mkdir(tempDirName)
-    # generate
-
+def twbxFromTdeAndTds(baseDir, tempDirName, tdeFileName, tdsFileName, baseTwb):
     # Copy to twb temp directory
-    shutil.copy(tdeFile, os.path.join(full_dir, tempDirName))
+    shutil.copy(os.path.join(baseDir, tdeFileName), os.path.join(baseDir, tempDirName))
 
     # Manipulate the temp and save to the twb temp dir
-    new_twb_name = tdsFile.split(os.path.sep).pop().replace('.tds', '.twb')
-
-    createTwbFromTds( baseTwb, tdsFile, os.path.join(tempDirName, new_twb_name), tdeFile)       
+    createTwbFromTds(baseDir, tempDirName, baseTwb, tdsFileName, tdeFileName)
 
     # Step x: Creat te twbx from twb + tde
-    twbxName = tdsFile.split(os.path.sep).pop().replace('.tds', '.twbx')
-    utils.createZip(os.path.join(full_dir, tempDirName), tdsFile.split(os.path.sep).pop().replace('.tds', '.twbx'))
+    utils.createZip(os.path.join(baseDir, tempDirName), os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
 
-    # return path
-    os.chdir(working_directory_store)
-    return os.path.join(full_dir, twbxName)
+    # return twbx path 
+    return os.path.join(baseDir, tdsFileName.replace('tds', 'twbx'))
 
 def tdsxToTwbx(tdsxFileName,
                 twbxFileName,\
@@ -49,7 +27,7 @@ def tdsxToTwbx(tdsxFileName,
                 twbxDir='twbxtemp'):
 
     # Step1: Unzip tdsx
-        # Crete temp dir if not exists
+    # Crete temp dir if not exists
     if not os.path.exists(tdsxExtractDir):
         os.makedirs(tdsxExtractDir)
 
@@ -82,39 +60,29 @@ def tdsxToTwbx(tdsxFileName,
     return os.path.join(twbxDir, twbxFileName)
 
 
-
-def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile='lookat.tdsx'):
-    
-    print(twbxDir, twbxFileName, tdsxTempDir, tdsxFile)
-
-    working_directory_store = os.getcwd()
-    full_dir_list = twbxDir.split(os.path.sep)
-    full_dir_list.pop()
-    full_dir = os.path.sep.join(full_dir_list)
-
-    # change wd
-    os.chdir(full_dir)
+def twbxToTdsx(baseDir, tempDirName, tdsFileName):
+    logging.debug('Generate Tdsx from ' + os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
 
     # remove all file from twbx temp directory
-    utils.deleteall(twbxDir)
+    utils.deleteall(os.path.join(baseDir, tempDirName))
 
     # extract twbx to twbxTemp dir
-    utils.unzip(twbxFileName, twbxDir)
+    utils.unzip(os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')), os.path.join(baseDir, tempDirName))
 
     # get tde file
     # copy the original tds to this dir
-    shutil.copy(tdsFile, twbxDir)
+    shutil.copy(os.path.join(baseDir, tdsFileName), os.path.join(baseDir, tempDirName))
 
     # find twb file from the twbx
-    twbfiles = utils.getFiles(twbxDir)
+    twbfiles = utils.getFiles(os.path.join(baseDir, tempDirName))
     twbfile = None
     for tf in twbfiles:
         if tf.get('name').endswith('twb'):
             twbfile = tf
 
     # copy twb database subtree back to the original tds file
-    tdsxmlstr = utils.openfile(tdsFile)
-    twbxmlstr = utils.openfile(twbfile.get('full'))
+    tdsxmlstr = utils.openfile(os.path.join(baseDir, tempDirName, tdsFileName))
+    twbxmlstr = utils.openfile(os.path.join(baseDir, tempDirName, tdsFileName.replace('tds', 'twb')))
     
     tdsIntruder = xmlintruder.XmlIntruder(tdsxmlstr)
     twbIntruder = xmlintruder.XmlIntruder(twbxmlstr)
@@ -127,9 +95,6 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile=
     for ds in tdsDatasourceList:
         attributes = ds.attrib
 
-    # Delete tds datasource
-    # tdsIntruder.gettree() = etree.Element()
-
     # read tds datasource tree
     twbDatasourceList = twbIntruder.subtree('/workbook/datasources/datasource')
 
@@ -138,19 +103,19 @@ def twbxToTdsx(twbxDir, twbxFileName, tdsFile, tdsxTempDir='tdsxTemp', tdsxFile=
         twbIntruder.deleteAllAttrib(twbds).addAllAttribs(twbds, attributes).insertInto('/workbook/datasources', twbds)
         tdsIntruder.settree(etree.tostring(twbds))
 
-    tdsIntruder.write(os.path.join(twbxDir, tdsFile.split(os.path.sep).pop()))
+    tdsIntruder.write(os.path.join(baseDir, tempDirName, tdsFileName))
 
-    os.remove(twbfile.get('full'))
-    utils.createZip(twbxDir, tdsxFile)
+    os.remove(os.path.join(baseDir, tempDirName, tdsFileName.replace('tds', 'twb')))
+    utils.createZip(os.path.join(baseDir, tempDirName), os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx')))
 
     # Clear temp files
-    shutil.rmtree(twbxDir)
-    os.remove(twbxFileName)
+    shutil.rmtree(os.path.join(baseDir, tempDirName))
+    os.remove(os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
 
 
-def createTwbFromTds(twb, tds, path, tde):
-    emptywbxmlstr = utils.openfile(twb)
-    tdsxmlstr = utils.openfile(tds)
+def createTwbFromTds(baseDir, tempDirName, twbTemplateFile, tdsFileName, tdeFileName):
+    emptywbxmlstr = utils.openfile(twbTemplateFile)
+    tdsxmlstr = utils.openfile(os.path.join(baseDir, tdsFileName))
 
     emptyIntruder = xmlintruder.XmlIntruder(emptywbxmlstr)
     tdsIntruder = xmlintruder.XmlIntruder(tdsxmlstr)
@@ -173,12 +138,12 @@ def createTwbFromTds(twb, tds, path, tde):
 
     # Set the twb path's point to the tde file
     for c in emptyIntruder.subtree('/workbook/datasources/datasource/connection/named-connections/named-connection/connection'):
-        emptyIntruder.setAttrib(c, 'dbname', tde.split(os.path.sep).pop())
+        emptyIntruder.setAttrib(c, 'dbname', tdeFileName)
 
     # Set the twb path's point to the tde file
     for c in emptyIntruder.subtree('/workbook/datasources/datasource/extract/connection'):
-        emptyIntruder.setAttrib(c, 'dbname', tde.split(os.path.sep).pop())
+        emptyIntruder.setAttrib(c, 'dbname', tdeFileName)
 
-    # Save the tdsx file
-    emptyIntruder.write(path)
+    # Save the twb file
+    emptyIntruder.write(os.path.join(baseDir, tempDirName, tdsFileName.replace('.tds', '.twb')))
 
