@@ -95,7 +95,7 @@ def getZipFileInfo(path):
         for f in myzip.infolist():
             result[f.filename] = {
                 "size": f.file_size,
-                "date": f.date_time
+                "date": "{0}-{1}-{2} {3}:{4}:{5}".format(*f.date_time)
             }
 
     return result

@@ -302,13 +302,13 @@ def trigger_optimize():
 
     # Create vaccine here pass to optimize_wrapper
     res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
+    file_info['optimized'] = utils.getZipFileInfo(fn)
+
+    logging.info(json.dumps(file_info, indent=4, sort_keys=False))
 
     if "error" in res:
         return json.dumps(res), 500
 
-    file_info['optimized'] = utils.getZipFileInfo(fn)
-
-    logging.info(json.dumps(file_info))
     return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
 
 
