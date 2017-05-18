@@ -88,3 +88,14 @@ def getFileInfo(filePath, callback):
         + getTimeString(mtime) + ', '\
         + getTimeString(mtime)
 
+def getZipFileInfo(path):
+    list = None
+    result = {}
+    with zipfile.ZipFile(path, 'r') as myzip:
+        for f in myzip.infolist():
+            result[f.filename] = {
+                "size": f.file_size,
+                "date": f.date_time
+            }
+
+    return result

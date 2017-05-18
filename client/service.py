@@ -266,6 +266,7 @@ def trigger_optimize():
     ########################################
 
     converterConfig = twbConverterConfig
+    file_info = {}
 
     ########################################
 
@@ -294,6 +295,8 @@ def trigger_optimize():
 
     ########################################
 
+    file_info['start'] = utils.getZipFileInfo(fn)
+
     # Sleep till we load the TDE (or do we)
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
 
@@ -303,9 +306,22 @@ def trigger_optimize():
     if "error" in res:
         return json.dumps(res), 500
 
+    file_info['optimized'] = utils.getZipFileInfo(fn)
+
+    logging.info(json.dumps(file_info))
     return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
 
 
+@app.route("/dev")
+def run_test():
+    file_info = {}
+    filepath = request.args.get('file', '').encode('ascii', 'ignore')
+
+    file_info['start'] = utils.getZipFileInfo(filepath)
+    file_info['optimized'] = utils.getZipFileInfo(filepath)
+    file_info['result'] = utils.getZipFileInfo(filepath)
+
+    return json.dumps(file_info)
 
 
 # MAIN --------------------------
