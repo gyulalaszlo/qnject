@@ -101,7 +101,7 @@ def root():
 
 
 # Get the config for debugging
-@app.route("/config")
+@app.route("/v1/config")
 def get_config():
     return str(json.dumps({"injectorConfig": injectorConfig,
                            "tableauConfig": tableauConfig,
@@ -310,18 +310,6 @@ def trigger_optimize():
         return json.dumps(res), 500
 
     return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
-
-
-@app.route("/dev")
-def run_test():
-    file_info = {}
-    filepath = request.args.get('file', '').encode('ascii', 'ignore')
-
-    file_info['start'] = utils.getZipFileInfo(filepath)
-    file_info['optimized'] = utils.getZipFileInfo(filepath)
-    file_info['result'] = utils.getZipFileInfo(filepath)
-
-    return json.dumps(file_info)
 
 
 # MAIN --------------------------
