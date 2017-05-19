@@ -10,11 +10,11 @@ import tempfile
 import shutil
 from logger_initializer import *
 import utils
-from flask import Flask, request
+from flask import Flask, request, redirect, url_for
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
 from service_config import *
-
+import upload_service as UploadService
 
 # Initialize logger
 logging.info("Setting log directory to: " + twbConverterConfig["logDirectory"])
@@ -24,7 +24,7 @@ initialize_logger(twbConverterConfig["logDirectory"])
 # APP ---------------------------
 
 app = Flask(__name__)
-
+app.config['UPLOAD_FOLDER'] = flaskConfig["uploadDirectory"]
 
 def getInjectorCmd(cfg, pid):
     return [cfg["injector"],
@@ -207,13 +207,9 @@ def wrapTwbxToTdsx(baseDir, tempDirName, tdsFileName):
     logging.info("Starting to generate TDSX from '%s'", os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
     # call
     try:
-        logging.info('--- File information start ---')
-
-        logging.info('--- File information end ---')
-
         return json.dumps({"ok": {
                 "msg": "Created TDSX",
-                "file":TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName)
+                "file": TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName)
                 }}), 200
     except Exception as e:
         logging.error("Error during TDSX creation: %s", traceback.format_exc())
@@ -234,6 +230,82 @@ def requires_query_argument(name):
 
 
 ################################################################################
+
+# S3 Endpoint
+@app.route('/v1/s3', methods=['GET'])
+def from_s3():
+    logging.info("S3 service called.")
+
+    (tds_uri_error, tds_uri) = requires_query_argument('tds_uri')
+    (tde_uri_error, tde_uri) = requires_query_argument('tde_uri')
+
+    if tde_uri_error is not None or tds_uri_error is not None:
+        return json.dumps({"error": {"msg": "Missing required arguments", "results":[tds_uri_error, tde_uri_error]}})
+
+    tds_file_name = tds_uri.split('/').pop()
+    tde_file_name = tde_uri.split('/').pop()
+
+    # save tds, tde file from s3 link
+    logging.info("Download " + tds_file_name + " from S3")
+    tds_file_url = UploadService.s3_download_file(s3Config["bucketName"], tds_uri, os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name))
+    logging.info("Download " + tde_file_name + " from S3")
+    tde_file_url = UploadService.s3_download_file(s3Config["bucketName"], tde_uri, os.path.join(app.config['UPLOAD_FOLDER'], tde_file_name))
+
+    logging.info("Download finished.")
+
+    logging.info("Triggering optimize service")
+    return redirect(url_for('.trigger_optimize',\
+        tds_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name),\
+        tde_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name)))
+
+
+
+
+# File upload endpoint
+@app.route('/v1/upload', methods=['POST'])
+def upload_file():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        # tde_file, tds_file
+
+        if 'tde_file' not in request.files:
+            flash('No tde_file part')
+            return redirect(request.url)
+        if 'tds_file' not in request.files:
+            flash('No tds_file part')
+            return redirect(request.url)
+
+        tde_file = request.files['tde_file']
+        tds_file = request.files['tds_file']
+        # if user does not select file, browser also
+        # submit a empty part without filename
+        if tde_file.filename == '':
+            flash('No selected tde file')
+            return redirect(request.url)
+        if tds_file.filename == '':
+            flash('No selected tds file')
+            return redirect(request.url)
+
+        # if file and UploadService.allowed_file(file.filename):
+        if tds_file:
+            # filename = secure_filename(file.filename)
+            tds_filename = tds_file.filename.encode('ascii', 'ignore')
+            tds_file.save(os.path.join(app.config['UPLOAD_FOLDER'], tds_filename))
+
+        if tde_file:
+            # filename = secure_filename(file.filename)
+            tde_filename = tde_file.filename.encode('ascii', 'ignore')
+            tde_file.save(os.path.join(app.config['UPLOAD_FOLDER'], tde_filename))
+
+            # We should trigger the optimizer here passing the local paths
+            
+
+            test_url = url_for('.trigger_optimize',\
+                tds_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_filename),\
+                tde_uri=os.path.join(app.config['UPLOAD_FOLDER'], tde_filename))
+            return redirect(test_url)
+            # return 'Arrived files'
+    return 
 
 # Actual optimize endpoint
 

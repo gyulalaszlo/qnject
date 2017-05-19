@@ -108,9 +108,14 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
     os.remove(os.path.join(baseDir, tempDirName, tdsFileName.replace('tds', 'twb')))
     utils.createZip(os.path.join(baseDir, tempDirName), os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx')))
 
+    logging.error("Result file path = " + os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx')))
+
     # Clear temp files
     shutil.rmtree(os.path.join(baseDir, tempDirName))
     os.remove(os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
+
+    
+    return os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx'))
 
 
 def createTwbFromTds(baseDir, tempDirName, twbTemplateFile, tdsFileName, tdeFileName):
