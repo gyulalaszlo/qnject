@@ -98,6 +98,14 @@ Options:
 
 ```
 
+``` bash
+## Web services
 
+### http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
 
+### http://localhost:5000/v1/s3?tds_uri=<aws link to file>&tde_uri=<aws link to file>
+  
+### http://localhost:5000/v1/upload?tds_uri
+  The tde and tds should be sent as file parameter
 
+```
