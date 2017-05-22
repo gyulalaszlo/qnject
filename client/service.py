@@ -10,7 +10,7 @@ import tempfile
 import shutil
 from logger_initializer import *
 import utils
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for, send_from_directory
 import tableau_file_converter as TableauFileConverter
 import tde_optimize
 from service_config import *
@@ -207,9 +207,12 @@ def wrapTwbxToTdsx(baseDir, tempDirName, tdsFileName):
     logging.info("Starting to generate TDSX from '%s'", os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
     # call
     try:
+        (fileUri, downloadLink) = TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase='http://localhost:5000/v1/download/')
+
         return json.dumps({"ok": {
                 "msg": "Created TDSX",
-                "file": TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName)
+                "file": fileUri,
+                "downloadLink": downloadLink
                 }}), 200
     except Exception as e:
         logging.error("Error during TDSX creation: %s", traceback.format_exc())
@@ -245,18 +248,22 @@ def from_s3():
     tds_file_name = tds_uri.split('/').pop()
     tde_file_name = tde_uri.split('/').pop()
 
+    # Generate temporary directory for the uploaded file
+    (tempFull, tempName) = utils.createTempDirectory(flaskConfig["uploadDirectory"], prefix=utils.getPrefix(tds_file_name, type='s3'))
+
+
     # save tds, tde file from s3 link
     logging.info("Download " + tds_file_name + " from S3")
-    tds_file_url = UploadService.s3_download_file(s3Config["bucketName"], tds_uri, os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name))
+    tds_file_url = UploadService.s3_download_file(s3Config["bucketName"], tds_uri, os.path.join(tempFull, tds_file_name))
     logging.info("Download " + tde_file_name + " from S3")
-    tde_file_url = UploadService.s3_download_file(s3Config["bucketName"], tde_uri, os.path.join(app.config['UPLOAD_FOLDER'], tde_file_name))
+    tde_file_url = UploadService.s3_download_file(s3Config["bucketName"], tde_uri, os.path.join(tempFull, tde_file_name))
 
     logging.info("Download finished.")
 
     logging.info("Triggering optimize service")
     return redirect(url_for('.trigger_optimize',\
-        tds_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name),\
-        tde_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_file_name)))
+        tds_uri=os.path.join(tempFull, tds_file_name),\
+        tde_uri=os.path.join(tempFull, tde_file_name)))
 
 
 
@@ -286,29 +293,41 @@ def upload_file():
             flash('No selected tds file')
             return redirect(request.url)
 
+        # Generate temporary directory for the uploaded file
+        (tempFull, tempName) = utils.createTempDirectory(app.config['UPLOAD_FOLDER'], prefix=utils.getPrefix(tds_file.filename, type='upolad'))
+
         # if file and UploadService.allowed_file(file.filename):
         if tds_file:
             # filename = secure_filename(file.filename)
             tds_filename = tds_file.filename.encode('ascii', 'ignore')
-            tds_file.save(os.path.join(app.config['UPLOAD_FOLDER'], tds_filename))
+            tds_file.save(os.path.join(tempFull, tds_filename))
 
         if tde_file:
             # filename = secure_filename(file.filename)
             tde_filename = tde_file.filename.encode('ascii', 'ignore')
-            tde_file.save(os.path.join(app.config['UPLOAD_FOLDER'], tde_filename))
+            tde_file.save(os.path.join(tempFull, tde_filename))
 
             # We should trigger the optimizer here passing the local paths
-            
-
             test_url = url_for('.trigger_optimize',\
-                tds_uri=os.path.join(app.config['UPLOAD_FOLDER'], tds_filename),\
-                tde_uri=os.path.join(app.config['UPLOAD_FOLDER'], tde_filename))
+                tds_uri=os.path.join(tempFull, tds_filename),\
+                tde_uri=os.path.join(tempFull, tde_filename))
             return redirect(test_url)
             # return 'Arrived files'
     return 
 
-# Actual optimize endpoint
 
+#Download finished tdsx by link
+@app.route("/v1/download/<path:filename>", methods=['GET'])
+def download(filename):
+    if filename is None:
+        return json.dumps({"error": {"msg": "Download file path is missing"}})
+
+    (path, dlFile) = utils.getDownloadLink(filename, app.config['UPLOAD_FOLDER'])
+    return send_from_directory(path, dlFile, as_attachment=False)
+
+
+
+# Actual optimize endpoint
 @app.route("/v1/optimize")
 def trigger_optimize():
     """ Optimizes a pair of Tableau Workbook and Datasource files.
@@ -349,7 +368,7 @@ def trigger_optimize():
     full_base_dir = os.path.sep.join(data_path)
     tds_file_name = tds_uri.split(os.path.sep).pop()
     tde_file_name = tde_uri.split(os.path.sep).pop()
-    temp_dir_name = utils.createTempDirectory(os.path.sep.join(data_path))
+    (tempFull, tempName) = utils.createTempDirectory(os.path.sep.join(data_path))
 
     ########################################
 
@@ -357,7 +376,7 @@ def trigger_optimize():
     try:
         fn = TableauFileConverter.twbxFromTdeAndTds(
                 baseDir=full_base_dir,
-                tempDirName=temp_dir_name,
+                tempDirName=tempName,
                 tdeFileName=tde_file_name,
                 tdsFileName=tds_file_name,
                 baseTwb=converterConfig['emptyWorkbookTemplate'])
@@ -381,7 +400,7 @@ def trigger_optimize():
     if "error" in res:
         return json.dumps(res), 500
 
-    return wrapTwbxToTdsx(full_base_dir, temp_dir_name, tds_file_name)
+    return wrapTwbxToTdsx(full_base_dir, tempName, tds_file_name)
 
 
 # MAIN --------------------------

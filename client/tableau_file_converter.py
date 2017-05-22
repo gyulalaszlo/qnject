@@ -60,7 +60,7 @@ def tdsxToTwbx(tdsxFileName,
     return os.path.join(twbxDir, twbxFileName)
 
 
-def twbxToTdsx(baseDir, tempDirName, tdsFileName):
+def twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase):
     logging.debug('Generate Tdsx from ' + os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
 
     # remove all file from twbx temp directory
@@ -95,6 +95,11 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
     for ds in tdsDatasourceList:
         attributes = ds.attrib
 
+    # read tds calculated fields for duplicated in the tde itself
+    twbColumnList = twbIntruder.subtree('/workbook/datasources/datasource/column[starts-with(@name, "[Calculation_")]')
+    for col in twbColumnList:
+        col.getparent().remove(col)
+
     # read tds datasource tree
     twbDatasourceList = twbIntruder.subtree('/workbook/datasources/datasource')
 
@@ -102,6 +107,8 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
     for twbds in twbDatasourceList:
         twbIntruder.deleteAllAttrib(twbds).addAllAttribs(twbds, attributes).insertInto('/workbook/datasources', twbds)
         tdsIntruder.settree(etree.tostring(twbds))
+
+
 
     tdsIntruder.write(os.path.join(baseDir, tempDirName, tdsFileName))
 
@@ -113,9 +120,8 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
     # Clear temp files
     shutil.rmtree(os.path.join(baseDir, tempDirName))
     os.remove(os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
-
     
-    return os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx'))
+    return (os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx')), downloadUrlBase + baseDir.split(os.path.sep).pop() + '/' + tdsFileName.replace('tds', 'tdsx'))
 
 
 def createTwbFromTds(baseDir, tempDirName, twbTemplateFile, tdsFileName, tdeFileName):
