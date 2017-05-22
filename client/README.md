@@ -98,14 +98,41 @@ Options:
 
 ```
 
+
+
+# Web services
+
 ``` bash
-## Web services
 
-### http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
+## Optimize
+ - call with loacl file paths 
+ - url: http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
 
-### http://localhost:5000/v1/s3?tds_uri=<aws link to file>&tde_uri=<aws link to file>
+## From S3 links
+ - call with s3 file links
+ - url: http://localhost:5000/v1/s3?tds_uri=<aws link to file>&tde_uri=<aws link to file>
   
-### http://localhost:5000/v1/upload?tds_uri
+## Upload
+ - call with files in the POST request body
+ - url: http://localhost:5000/v1/upload
+    body params:
+      tds_file - <tds file>
+      tde_file - <tde file>
   The tde and tds should be sent as file parameter
-
 ```
+
+All the service returns a json information about the generated file, like:
+
+
+``` json
+{"ok": 
+  {
+    "msg": "Created TDSX",
+    "downloadLink": "http://localhost:5000/v1/download/s3_proba1_hliout/proba1.tdsx",
+    "file": "c:\\Temp\\Netflix\\uploads\\s3_proba1_hliout\\proba1.tdsx"
+  }
+}
+```
+
+The download link can be called to download the generated tdsx file itself
+
