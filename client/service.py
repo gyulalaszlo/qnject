@@ -147,11 +147,9 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
     port = nextPortIndex(vaccinePorts)
 
     # Create vaccine log file
-    # vaccine_log_file = tempfile.mkstemp(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
     vaccine_log_file = tempfile.TemporaryFile(dir=os.path.join(twbConverterConfig["logDirectory"], 'vaccine_temp'))
 
     # Start Tableau Desktop with the file
-    logging.info("--> Starting tableau with TWBX: %s", twbxPath)
     res = start_tableau(tableauConfig, twbxPath, vaccineLogFile=vaccine_log_file.name, port=port)
 
     # Error checking
@@ -228,7 +226,7 @@ def requires_query_argument(name):
     if arg is None:
         return ({"msg": "a '" + name + "' url parameter must be provided."}, None)
     else:
-        return (None,arg.encode('ascii', 'ignore'))
+        return (None,arg.encode('ascii', 'ignore').strip())
 
 
 
@@ -245,12 +243,11 @@ def from_s3():
     if tde_uri_error is not None or tds_uri_error is not None:
         return json.dumps({"error": {"msg": "Missing required arguments", "results":[tds_uri_error, tde_uri_error]}})
 
-    tds_file_name = tds_uri.split('/').pop()
-    tde_file_name = tde_uri.split('/').pop()
+    tds_file_name = tds_uri.split('/').pop().strip()
+    tde_file_name = tde_uri.split('/').pop().strip()
 
     # Generate temporary directory for the uploaded file
     (tempFull, tempName) = utils.createTempDirectory(flaskConfig["uploadDirectory"], prefix=utils.getPrefix(tds_file_name, type='s3'))
-
 
     # save tds, tde file from s3 link
     logging.info("Download " + tds_file_name + " from S3")
@@ -267,7 +264,6 @@ def from_s3():
 
 
 
-
 # File upload endpoint
 @app.route('/v1/upload', methods=['POST'])
 def upload_file():
@@ -276,34 +272,32 @@ def upload_file():
         # tde_file, tds_file
 
         if 'tde_file' not in request.files:
-            flash('No tde_file part')
-            return redirect(request.url)
+            logging.error("Error during upload: No tde_file given in request body.")
+            return json.dumps({"error": {"msg": "Upload error: No tde_file given in request body."}})
         if 'tds_file' not in request.files:
-            flash('No tds_file part')
-            return redirect(request.url)
+            logging.error("Error during upload: No tds_file given in request body.")
+            return json.dumps({"error": {"msg": "Upload error: No tds_file given in request body."}})
 
-        tde_file = request.files['tde_file']
-        tds_file = request.files['tds_file']
+        tde_file = request.files['tde_file'].strip()
+        tds_file = request.files['tds_file'].strip()
         # if user does not select file, browser also
         # submit a empty part without filename
         if tde_file.filename == '':
-            flash('No selected tde file')
-            return redirect(request.url)
+            logging.error("Error during upload: No selected tde_file.")
+            return json.dumps({"error": {"msg": "Upload error: selected tde_file."}})
         if tds_file.filename == '':
-            flash('No selected tds file')
-            return redirect(request.url)
+            logging.error("Error during upload: No selected tds_file.")
+            return json.dumps({"error": {"msg": "Upload error: selected tds_file."}})
 
         # Generate temporary directory for the uploaded file
         (tempFull, tempName) = utils.createTempDirectory(app.config['UPLOAD_FOLDER'], prefix=utils.getPrefix(tds_file.filename, type='upolad'))
 
         # if file and UploadService.allowed_file(file.filename):
         if tds_file:
-            # filename = secure_filename(file.filename)
             tds_filename = tds_file.filename.encode('ascii', 'ignore')
             tds_file.save(os.path.join(tempFull, tds_filename))
 
         if tde_file:
-            # filename = secure_filename(file.filename)
             tde_filename = tde_file.filename.encode('ascii', 'ignore')
             tde_file.save(os.path.join(tempFull, tde_filename))
 
@@ -362,13 +356,11 @@ def trigger_optimize():
     ########################################
 
     # Generate temp directory
-    data_path = tds_uri.split(os.path.sep)
-    data_path.pop()
-
-    full_base_dir = os.path.sep.join(data_path)
-    tds_file_name = tds_uri.split(os.path.sep).pop()
-    tde_file_name = tde_uri.split(os.path.sep).pop()
-    (tempFull, tempName) = utils.createTempDirectory(os.path.sep.join(data_path))
+    full_base_dir = os.path.dirname(tds_uri)
+    tds_file_name = os.path.basename(tds_uri)
+    tde_file_name = os.path.basename(tde_uri)
+    
+    (tempFull, tempName) = utils.createTempDirectory(full_base_dir)
 
     ########################################
 
@@ -385,7 +377,7 @@ def trigger_optimize():
         return json.dumps({"error": {"msg": "Error during TWBX generation"}}), 500
 
     ########################################
-
+    logging.info('Optimizer input twbx saved to %s', fn)
     file_info['start'] = utils.getZipFileInfo(fn)
 
     # Sleep till we load the TDE (or do we)

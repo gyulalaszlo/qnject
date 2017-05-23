@@ -67,7 +67,8 @@ def createTempDirectory(path, suffix='', prefix=''):
 
     fullTempDir = tempfile.mkdtemp(prefix=prefix, dir=path, suffix=suffix)
     logging.info('Creating temporary directory: ' + fullTempDir)
-    return (fullTempDir, fullTempDir.split(os.path.sep).pop())
+    return (fullTempDir, os.path.basename(fullTempDir))
+    
 
 
 # Convert the unix timestamp ("seconds since epoch") to the local time
