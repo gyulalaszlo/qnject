@@ -243,8 +243,8 @@ def from_s3():
     if tde_uri_error is not None or tds_uri_error is not None:
         return json.dumps({"error": {"msg": "Missing required arguments", "results":[tds_uri_error, tde_uri_error]}})
 
-    tds_file_name = tds_uri.split('/').pop().strip()
-    tde_file_name = tde_uri.split('/').pop().strip()
+    tds_file_name = utils.getFilenameFromUri(tds_uri)
+    tde_file_name = utils.getFilenameFromUri(tde_uri)
 
     # Generate temporary directory for the uploaded file
     (tempFull, tempName) = utils.createTempDirectory(flaskConfig["uploadDirectory"], prefix=utils.getPrefix(tds_file_name, type='s3'))
@@ -278,27 +278,28 @@ def upload_file():
             logging.error("Error during upload: No tds_file given in request body.")
             return json.dumps({"error": {"msg": "Upload error: No tds_file given in request body."}})
 
-        tde_file = request.files['tde_file'].strip()
-        tds_file = request.files['tds_file'].strip()
+        tde_file = request.files['tde_file']
+        tds_file = request.files['tds_file']
         # if user does not select file, browser also
         # submit a empty part without filename
-        if tde_file.filename == '':
+        if tde_file.filename.strip() == '':
             logging.error("Error during upload: No selected tde_file.")
             return json.dumps({"error": {"msg": "Upload error: selected tde_file."}})
-        if tds_file.filename == '':
+        if tds_file.filename.strip() == '':
             logging.error("Error during upload: No selected tds_file.")
             return json.dumps({"error": {"msg": "Upload error: selected tds_file."}})
 
         # Generate temporary directory for the uploaded file
-        (tempFull, tempName) = utils.createTempDirectory(app.config['UPLOAD_FOLDER'], prefix=utils.getPrefix(tds_file.filename, type='upolad'))
+        (tempFull, tempName) = utils.createTempDirectory(
+            app.config['UPLOAD_FOLDER'],
+            prefix=utils.getPrefix(tds_file.filename, type='upolad'))
 
-        # if file and UploadService.allowed_file(file.filename):
         if tds_file:
-            tds_filename = tds_file.filename.encode('ascii', 'ignore')
+            tds_filename = utils.encodeString(tds_file.filename)
             tds_file.save(os.path.join(tempFull, tds_filename))
 
         if tde_file:
-            tde_filename = tde_file.filename.encode('ascii', 'ignore')
+            tde_filename = utils.encodeString(tde_file.filename)
             tde_file.save(os.path.join(tempFull, tde_filename))
 
             # We should trigger the optimizer here passing the local paths
@@ -306,7 +307,6 @@ def upload_file():
                 tds_uri=os.path.join(tempFull, tds_filename),\
                 tde_uri=os.path.join(tempFull, tde_filename))
             return redirect(test_url)
-            # return 'Arrived files'
     return 
 
 

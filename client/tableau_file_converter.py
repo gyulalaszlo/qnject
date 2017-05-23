@@ -110,7 +110,6 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase):
         tdsIntruder.settree(etree.tostring(twbds))
 
 
-
     tdsIntruder.write(os.path.join(baseDir, tempDirName, tdsFileName))
 
     os.remove(os.path.join(baseDir, tempDirName, tdsFileName.replace('tds', 'twb')))

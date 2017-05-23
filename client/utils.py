@@ -117,3 +117,9 @@ def getDownloadLink(filename, downloadUrl):
     dlpath = os.path.join(downloadUrl, os.path.sep.join(fp_list))
     return (dlpath, dlFile)
     
+
+def getFilenameFromUri(fileUri):
+    return fileUri.split('/').pop().strip()
+
+def encodeString(name):
+    return name.encode('ascii', 'ignore').strip()
