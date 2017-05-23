@@ -203,9 +203,11 @@ def optimize_wrapper(twbxPath, sleepSeconds=10):
 def wrapTwbxToTdsx(baseDir, tempDirName, tdsFileName):
     """Wraps the creation of a combined TDSX file from a TWBX filename"""
     logging.info("Starting to generate TDSX from '%s'", os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
+
+    request_ip = utils.getLocalIp()
     # call
     try:
-        (fileUri, downloadLink) = TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase='http://localhost:5000/v1/download/')
+        (fileUri, downloadLink) = TableauFileConverter.twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase='http://' + request_ip + ':5000/v1/download/')
 
         return json.dumps({"ok": {
                 "msg": "Created TDSX",
@@ -263,14 +265,13 @@ def from_s3():
         tde_uri=os.path.join(tempFull, tde_file_name)))
 
 
-
 # File upload endpoint
 @app.route('/v1/upload', methods=['POST'])
 def upload_file():
     if request.method == 'POST':
         # check if the post request has the file part
         # tde_file, tds_file
-
+        logging.debug('Remote ip: %s', request.remote_addr)
         if 'tde_file' not in request.files:
             logging.error("Error during upload: No tde_file given in request body.")
             return json.dumps({"error": {"msg": "Upload error: No tde_file given in request body."}})
@@ -280,6 +281,8 @@ def upload_file():
 
         tde_file = request.files['tde_file']
         tds_file = request.files['tds_file']
+
+       
         # if user does not select file, browser also
         # submit a empty part without filename
         if tde_file.filename.strip() == '':
@@ -383,6 +386,8 @@ def trigger_optimize():
     # Sleep till we load the TDE (or do we)
     sleepSeconds = num(request.args.get('sleep', '10'), 10)
 
+    # request_ip = utils.getLocalIp()
+
     # Create vaccine here pass to optimize_wrapper
     res = optimize_wrapper(fn, sleepSeconds=sleepSeconds)
     file_info['optimized'] = utils.getZipFileInfo(fn)
@@ -399,4 +404,4 @@ def trigger_optimize():
 
 
 if __name__ == "__main__":
-    app.run(threaded = True)
+    app.run(threaded = True, host='0.0.0.0')

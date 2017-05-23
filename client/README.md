@@ -1,3 +1,7 @@
+# Requirements
+
+The service needs a python install on the host system, also the pip tool.
+
 # Optimizer webservice
 
 This is a flask-based microservice that allows triggering different steps in the optimization pipeline that need to
@@ -8,7 +12,7 @@ use Desktop and the injector.
 
 #### Set up the configuration
 
-Currently the configuration for the steps is stored in the microservice python file itself:
+Currently the configuration for the steps is stored in the service_config.py python file itself:
 
 ```python
 
@@ -28,18 +32,78 @@ tableauConfig = {
     "tableau.exe": "C:\\Program Files\\Tableau\\Tableau 10.2\\bin\\tableau.exe",
 }
 
-# The
-baseUrl = "http://localhost:8000/api"
+twbConverterConfig = {
+    "emptyWorkbookTemplate": "c:\\Temp\\Netflix\\template\\emptywb.twb ",
+    "logDirectory": 'c:\\Temp\\Netflix\\logs'
+}
+
+flaskConfig = {
+    "uploadDirectory": "c:\\Temp\\Netflix\\uploads",
+    "allowedExtensions": set(['tde', 'tds', 'twb', 'twbx', 'tdsx'])
+}
+
+s3Config = {
+    "bucketName": "",
+    "keyId": "",
+    "sKeyId": ""
+}
+
 ```
 
-TODO: move the config to a separate file
+#### Install required packages
+From the client directory, run the following command:
 
+``` bash
+pip install -r requirements.txt
+
+```
 
 #### Start the service
+From the client directory start the service:
 
 ```bash
 python service.py
 ```
+
+### Web services
+
+``` bash
+
+## Optimize
+ - call with local file paths 
+ - url: http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
+ - example: http://localhost:5000/v1/optimize?tds_uri=c:\Work\Tableau\datasource.tds&tde_uri=c:\Work\Tableau\extractedData.tde
+
+## From S3 links
+ - call with s3 file links
+ - url: http://localhost:5000/v1/s3?tds_uri=<s3 link to tds file>&tde_uri=<s3 link to tde file>
+ - url: http://localhost:5000/v1/s3?tds_uri=https://s3-eu-west-1.amazonaws.com/mybucket/datasource.tds&tde_uri=https://s3-eu-west-1.amazonaws.com/mybucket/extractedData.tde
+  
+## Upload
+ - call with files in the POST request body
+ - url: http://localhost:5000/v1/upload
+    body params:
+      tds_file - <tds file>
+      tde_file - <tde file>
+  The tde and tds should be sent as file
+```
+
+All the service returns a json information about the generated file, like:
+
+
+``` json
+{"ok": 
+  {
+    "msg": "Created TDSX",
+    "downloadLink": "http://1.2.3.4:5000/v1/download/s3_proba1_hliout/proba1.tdsx",
+    "file": "c:\\Temp\\Netflix\\uploads\\s3_proba1_hliout\\proba1.tdsx"
+  }
+}
+```
+
+The download link can be called to download the generated tdsx file itself
+
+
 
 #### Trigger an optimize
 
@@ -97,44 +161,4 @@ Options:
   --help         Show this message and exit.
 
 ```
-
-
-
-# Web services
-
-``` bash
-
-## Optimize
- - call with local file paths 
- - url: http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
- - example: http://localhost:5000/v1/optimize?tds_uri=c:\Work\Tableau\datasource.tds&tde_uri=c:\Work\Tableau\extractedData.tde
-
-## From S3 links
- - call with s3 file links
- - url: http://localhost:5000/v1/s3?tds_uri=<s3 link to tds file>&tde_uri=<s3 link to tde file>
- - url: http://localhost:5000/v1/s3?tds_uri=https://s3-eu-west-1.amazonaws.com/mybucket/datasource.tds&tde_uri=https://s3-eu-west-1.amazonaws.com/mybucket/extractedData.tde
-  
-## Upload
- - call with files in the POST request body
- - url: http://localhost:5000/v1/upload
-    body params:
-      tds_file - <tds file>
-      tde_file - <tde file>
-  The tde and tds should be sent as file
-```
-
-All the service returns a json information about the generated file, like:
-
-
-``` json
-{"ok": 
-  {
-    "msg": "Created TDSX",
-    "downloadLink": "http://localhost:5000/v1/download/s3_proba1_hliout/proba1.tdsx",
-    "file": "c:\\Temp\\Netflix\\uploads\\s3_proba1_hliout\\proba1.tdsx"
-  }
-}
-```
-
-The download link can be called to download the generated tdsx file itself
 
