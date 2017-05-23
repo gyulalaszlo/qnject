@@ -6,6 +6,7 @@ import logging
 import tzlocal
 import xmlintruder
 import tempfile
+import socket
 
 
 def openfile(path):
@@ -123,3 +124,9 @@ def getFilenameFromUri(fileUri):
 
 def encodeString(name):
     return name.encode('ascii', 'ignore').strip()
+
+def getLocalIp():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('8.8.8.8', 1))  # connect() for UDP doesn't send packets
+    local_ip_address = s.getsockname()[0]
+    return local_ip_address
