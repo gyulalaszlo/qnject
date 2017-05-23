@@ -61,10 +61,14 @@ def callHttpGet(twbxPath, twbxFileName):
     return response
 
 # Creates a temporary directory in path, and return only the name of it without the path
-def createTempDirectory(path):
-    fullTempDir = tempfile.mkdtemp(dir=path)
+def createTempDirectory(path, suffix='', prefix=''):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    fullTempDir = tempfile.mkdtemp(prefix=prefix, dir=path, suffix=suffix)
     logging.info('Creating temporary directory: ' + fullTempDir)
-    return fullTempDir.split(os.path.sep).pop()
+    return (fullTempDir, os.path.basename(fullTempDir))
+    
 
 
 # Convert the unix timestamp ("seconds since epoch") to the local time
@@ -99,3 +103,23 @@ def getZipFileInfo(path):
             }
 
     return result
+
+def getPrefix(filename, type=''):
+    fn_part_list = filename.split('.')
+    fn_part_list.pop()
+    return type + '_' + ''.join(fn_part_list) + '_'
+
+
+def getDownloadLink(filename, downloadUrl):
+    file_param = filename.encode('ascii', 'ignore')
+    fp_list = file_param.split('/')
+    dlFile = fp_list.pop()
+    dlpath = os.path.join(downloadUrl, os.path.sep.join(fp_list))
+    return (dlpath, dlFile)
+    
+
+def getFilenameFromUri(fileUri):
+    return fileUri.split('/').pop().strip()
+
+def encodeString(name):
+    return name.encode('ascii', 'ignore').strip()

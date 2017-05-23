@@ -2,6 +2,7 @@ import os
 import shutil
 import logging
 from lxml import etree
+from service_config import flaskConfig
 
 import utils
 import xmlintruder
@@ -60,7 +61,7 @@ def tdsxToTwbx(tdsxFileName,
     return os.path.join(twbxDir, twbxFileName)
 
 
-def twbxToTdsx(baseDir, tempDirName, tdsFileName):
+def twbxToTdsx(baseDir, tempDirName, tdsFileName, downloadUrlBase):
     logging.debug('Generate Tdsx from ' + os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
 
     # remove all file from twbx temp directory
@@ -95,6 +96,11 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
     for ds in tdsDatasourceList:
         attributes = ds.attrib
 
+    # read tds calculated fields for duplicated in the tde itself
+    twbColumnList = twbIntruder.subtree('/workbook/datasources/datasource/column[starts-with(@name, "[Calculation_")]')
+    for col in twbColumnList:
+        col.getparent().remove(col)
+
     # read tds datasource tree
     twbDatasourceList = twbIntruder.subtree('/workbook/datasources/datasource')
 
@@ -103,14 +109,28 @@ def twbxToTdsx(baseDir, tempDirName, tdsFileName):
         twbIntruder.deleteAllAttrib(twbds).addAllAttribs(twbds, attributes).insertInto('/workbook/datasources', twbds)
         tdsIntruder.settree(etree.tostring(twbds))
 
+
     tdsIntruder.write(os.path.join(baseDir, tempDirName, tdsFileName))
 
     os.remove(os.path.join(baseDir, tempDirName, tdsFileName.replace('tds', 'twb')))
-    utils.createZip(os.path.join(baseDir, tempDirName), os.path.join(baseDir, tdsFileName.replace('tds', 'tdsx')))
+
+    # Create tdsx result in upload temp dir
+    (uploadTempDirFull, uploadTempDirName) = utils.createTempDirectory(flaskConfig["uploadDirectory"], prefix=utils.getPrefix(tdsFileName, type='optimize'))
+    logging.info("Upload temporary directory generated at %s", uploadTempDirFull)
+
+    logging.debug('--- DEBUG ---')
+    logging.debug('Create Zip from: %s', os.path.join(baseDir, uploadTempDirFull))
+    logging.debug('Into : %s', os.path.join(uploadTempDirFull, tdsFileName.replace('tds', 'tdsx')))
+    logging.debug('--- DEBUG END ---')
+    utils.createZip(os.path.join(baseDir, tempDirName), os.path.join(uploadTempDirFull, tdsFileName.replace('tds', 'tdsx')))
+
+    logging.error("Result file path = " + os.path.join(uploadTempDirFull, tdsFileName.replace('tds', 'tdsx')))
 
     # Clear temp files
     shutil.rmtree(os.path.join(baseDir, tempDirName))
     os.remove(os.path.join(baseDir, tdsFileName.replace('tds', 'twbx')))
+    
+    return (os.path.join(uploadTempDirFull, tdsFileName.replace('tds', 'tdsx')), downloadUrlBase + uploadTempDirName + '/' + tdsFileName.replace('tds', 'tdsx'))
 
 
 def createTwbFromTds(baseDir, tempDirName, twbTemplateFile, tdsFileName, tdeFileName):

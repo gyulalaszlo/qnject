@@ -2,8 +2,8 @@
 
 injectorConfig = {
     # "injector-cmd": "Injector64.exe",
-    "injector": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\Injector.exe",
-    "dll": "c:\\Work\\Git\\xml-intruder-2k\\qinject\\qnject.dll",
+    "injector": "c:\\Temp\\Netflix\\programs\\Injector.exe",
+    "dll": "c:\\Temp\\Netflix\\programs\\qnject.dll",
     "process-name": "tableau.exe",
 }
 
@@ -12,6 +12,17 @@ tableauConfig = {
 }
 
 twbConverterConfig = {
-    "emptyWorkbookTemplate": "c:\\Work\\Tableau\\Netflix\\Master test\\base\\emptywb.twb",
-    "logDirectory": 'c:\\Work\\Git\\qnject-tde\\client\\logs'
+    "emptyWorkbookTemplate": "c:\\Temp\\Netflix\\template\\emptywb.twb ",
+    "logDirectory": 'c:\\Temp\\Netflix\\logs'
+}
+
+flaskConfig = {
+    "uploadDirectory": "c:\\Temp\\Netflix\\uploads",
+    "allowedExtensions": set(['tde', 'tds', 'twb', 'twbx', 'tdsx'])
+}
+
+s3Config = {
+    "bucketName": "",
+    "keyId": "",
+    "sKeyId": ""
 }
