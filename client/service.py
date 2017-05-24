@@ -307,7 +307,7 @@ def upload_file():
                 tds_uri=os.path.join(tempFull, tds_filename),\
                 tde_uri=os.path.join(tempFull, tde_filename))
             return redirect(test_url)
-    return 
+    return
 
 
 #Download finished tdsx by link
@@ -359,7 +359,7 @@ def trigger_optimize():
     full_base_dir = os.path.dirname(tds_uri)
     tds_file_name = os.path.basename(tds_uri)
     tde_file_name = os.path.basename(tde_uri)
-    
+
     (tempFull, tempName) = utils.createTempDirectory(full_base_dir)
 
     ########################################
@@ -399,4 +399,4 @@ def trigger_optimize():
 
 
 if __name__ == "__main__":
-    app.run(threaded = True)
+    app.run(threaded = True, port=flaskConfig.get("port", 5000))
