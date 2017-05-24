@@ -8,31 +8,71 @@ use Desktop and the injector.
 
 #### Set up the configuration
 
-Currently the configuration for the steps is stored in the microservice python file itself:
+
+First, create a copy of the `service_configuration.py.example` as `service_configuration.py`
+
+```bash
+cp service_config.py.example service_config.py
+```
+
+Then edit the directories to suit your environment. An example configuration is
+provided bellow (this should be the same as the configuration in
+`service_config.py`.
 
 ```python
+# CONFIG --------------------------
 
-# Configuration for the QNject bits
+# Configuration data for injecting into Tableau Desktop
+#
 injectorConfig = {
-    # Path to the Injector executable for the target architecture
-    "injector": "C:\\tmp\\_builds\\qnject64\\Injector64.exe",
-    # Path to the QNject dll for the target architecture
-    "dll": "c:\\tmp\\_builds\\qnject64\\vaccine\\Release\\qnject.dll",
-    # The process name we want to hook.
+
+    # The location of "Injector.exe" or "Injector64.exe" depending on your
+    # platform and the version of Tableau you are using
+    "injector": "c:\\Temp\\Netflix\\programs\\Injector.exe",
+
+    # The Qnject DLL location (this will be injected into Tableau Desktop)
+    "dll": "c:\\Temp\\Netflix\\programs\\qnject.dll",
+
+    # Sometimes after launching Tableau, the shell returns an invalid PID,
+    # so we try to resolve it with injecting to all running processes with
+    # this name (as the service is already bound at this point, subsequest
+    # vaccines should not be launched.
     "process-name": "tableau.exe",
 }
 
-# Configuration for launching Tableau
+# Configuration about tableau
 tableauConfig = {
-    # The path to the tableau.exe executable
+    # The path to the Tableau Desktop Executable
     "tableau.exe": "C:\\Program Files\\Tableau\\Tableau 10.2\\bin\\tableau.exe",
 }
 
-# The
-baseUrl = "http://localhost:8000/api"
-```
 
-TODO: move the config to a separate file
+# Conversion config options
+twbConverterConfig = {
+    # Where the empty workbook template is located
+    "emptyWorkbookTemplate": "c:\\Temp\\Netflix\\template\\emptywb.twb ",
+    # Directory where conversion logs are stored
+    "logDirectory": 'c:\\Temp\\Netflix\\logs'
+}
+
+# Webservice configuration
+flaskConfig = {
+    # Which port flask should bind to
+    "port": 5000,
+    # Where to store the uploads
+    "uploadDirectory": "c:\\Temp\\Netflix\\uploads",
+    # The extensions we allow for  uploading
+    "allowedExtensions": set(['tde', 'tds', 'twb', 'twbx', 'tdsx'])
+}
+
+
+# When transfering files using S3, embed your credentials here
+s3Config = {
+    "bucketName": "",
+    "keyId": "",
+    "sKeyId": ""
+}
+```
 
 
 #### Start the service
@@ -105,7 +145,7 @@ Options:
 ``` bash
 
 ## Optimize
- - call with local file paths 
+ - call with local file paths
  - url: http://localhost:5000/v1/optimize?tds_uri=<file path to .tds>tds&tde_uri=<file path to .tde>
  - example: http://localhost:5000/v1/optimize?tds_uri=c:\Work\Tableau\datasource.tds&tde_uri=c:\Work\Tableau\extractedData.tde
 
@@ -113,7 +153,7 @@ Options:
  - call with s3 file links
  - url: http://localhost:5000/v1/s3?tds_uri=<s3 link to tds file>&tde_uri=<s3 link to tde file>
  - url: http://localhost:5000/v1/s3?tds_uri=https://s3-eu-west-1.amazonaws.com/mybucket/datasource.tds&tde_uri=https://s3-eu-west-1.amazonaws.com/mybucket/extractedData.tde
-  
+
 ## Upload
  - call with files in the POST request body
  - url: http://localhost:5000/v1/upload
@@ -127,7 +167,7 @@ All the service returns a json information about the generated file, like:
 
 
 ``` json
-{"ok": 
+{"ok":
   {
     "msg": "Created TDSX",
     "downloadLink": "http://localhost:5000/v1/download/s3_proba1_hliout/proba1.tdsx",

@@ -1,0 +1,3 @@
+
+# Ignore any actual configurations created by the user
+service_config.py

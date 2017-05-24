@@ -1,0 +1,52 @@
+# CONFIG --------------------------
+
+# Configuration data for injecting into Tableau Desktop
+#
+injectorConfig = {
+
+    # The location of "Injector.exe" or "Injector64.exe" depending on your
+    # platform and the version of Tableau you are using
+    "injector": "c:\\Temp\\Netflix\\programs\\Injector.exe",
+
+    # The Qnject DLL location (this will be injected into Tableau Desktop)
+    "dll": "c:\\Temp\\Netflix\\programs\\qnject.dll",
+
+    # Sometimes after launching Tableau, the shell returns an invalid PID,
+    # so we try to resolve it with injecting to all running processes with
+    # this name (as the service is already bound at this point, subsequest
+    # vaccines should not be launched.
+    "process-name": "tableau.exe",
+}
+
+# Configuration about tableau
+tableauConfig = {
+    # The path to the Tableau Desktop Executable
+    "tableau.exe": "C:\\Program Files\\Tableau\\Tableau 10.2\\bin\\tableau.exe",
+}
+
+
+# Conversion config options
+twbConverterConfig = {
+    # Where the empty workbook template is located
+    "emptyWorkbookTemplate": "c:\\Temp\\Netflix\\template\\emptywb.twb ",
+    # Directory where conversion logs are stored
+    "logDirectory": 'c:\\Temp\\Netflix\\logs'
+}
+
+# Webservice configuration
+flaskConfig = {
+    # Which port flask should bind to
+    "port": 5000,
+    # Where to store the uploads
+    "uploadDirectory": "c:\\Temp\\Netflix\\uploads",
+    # The extensions we allow for  uploading
+    "allowedExtensions": set(['tde', 'tds', 'twb', 'twbx', 'tdsx'])
+}
+
+
+# When transfering files using S3, embed your credentials here
+s3Config = {
+    "bucketName": "",
+    "keyId": "",
+    "sKeyId": ""
+}
