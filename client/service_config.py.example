@@ -29,6 +29,7 @@ tableauConfig = {
 twbConverterConfig = {
     # Where the empty workbook template is located
     "emptyWorkbookTemplate": "c:\\Temp\\Netflix\\template\\emptywb.twb ",
+
     # Directory where conversion logs are stored
     "logDirectory": 'c:\\Temp\\Netflix\\logs'
 }
@@ -37,8 +38,13 @@ twbConverterConfig = {
 flaskConfig = {
     # Which port flask should bind to
     "port": 5000,
+
+    # The host to bind the we service to
+    "host": '0.0.0.0',
+
     # Where to store the uploads
     "uploadDirectory": "c:\\Temp\\Netflix\\uploads",
+
     # The extensions we allow for  uploading
     "allowedExtensions": set(['tde', 'tds', 'twb', 'twbx', 'tdsx'])
 }
